@@ -8,12 +8,12 @@ const ChatBot = ({ hideHeader = false }) => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  // Refs to handle auto-scrolling to the latest message and keeping focus on the input box
+
+  // Refs for auto-scrolling to the latest message and keeping focus on the input box
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Automatically scroll down whenever new messages are added to the chat
+  // Auto-scrolls when new messages are added to the chat
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -21,11 +21,11 @@ const ChatBot = ({ hideHeader = false }) => {
     scrollToBottom();
   }, [messages]);
 
-  // Sends the entire conversation history to our secure backend proxy
+  // Sends the entire conversation history to backend proxy
   const callGroqAPI = async (conversationHistory) => {
     try {
       setError('');
-      
+
       const response = await axiosInstance.post('/chatbot', {
         messages: conversationHistory
       });

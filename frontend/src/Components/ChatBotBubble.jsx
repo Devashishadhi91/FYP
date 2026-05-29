@@ -1,15 +1,20 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { MessageCircle, X } from 'lucide-react';
 import ChatBot from './ChatBot';
 
 const ChatBotBubble = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const location = useLocation();
+
+  // Hide the chatbot bubble on Home, Login, and Signup pages
+  const hiddenRoutes = ['/', '/LoginPage', '/SignupPage'];
+  if (hiddenRoutes.includes(location.pathname)) return null;
 
   return (
     <>
       {/* 
-        This is the floating action button (FAB) that sits in the bottom right corner of the screen.
-        Clicking it toggles the chat window open and closed. 
+        Floating chat button.
       */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -27,20 +32,19 @@ const ChatBotBubble = () => {
       </button>
 
       {/* 
-        This is the actual chat window modal that pops up when the button above is clicked.
-        It sits just above the floating button.
+        Chat window modal that pops up when the button is clicked.
       */}
       {isOpen && (
         <>
-          {/* A subtle invisible backdrop that closes the chat if the user clicks anywhere outside of it */}
+          {/* Backdrop that closes the chat if the user clicks anywhere outside of it */}
           <div
             className="fixed inset-0 z-30"
             onClick={() => setIsOpen(false)}
           />
 
-          {/* The main container for the chat interface */}
+          {/* Chat interface */}
           <div className="fixed bottom-28 right-6 w-96 h-[600px] z-40 rounded-2xl overflow-hidden shadow-2xl bg-white flex flex-col">
-            {/* The custom header for the chat bubble */}
+            {/* Custom header for the chat bubble */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex justify-between items-center">
               <div>
                 <h2 className="font-bold text-lg">Inventory Assistant</h2>
@@ -54,7 +58,7 @@ const ChatBotBubble = () => {
               </button>
             </div>
 
-            {/* We reuse the main ChatBot component here, but hide its default header so it fits perfectly in the bubble */}
+            {/* reusing the main ChatBot component, but hide its default header so it fits perfectly in the bubble */}
             <div className="flex-1 overflow-hidden">
               <ChatBot hideHeader={true} />
             </div>
