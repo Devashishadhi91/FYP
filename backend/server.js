@@ -27,6 +27,9 @@ const chatbotRouter = require('./Routers/chatbotRouter');
 const PORT = process.env.PORT || 3003;
 const app = express();
 
+// Trust Render's reverse proxy for rate limiting
+app.set('trust proxy', 1);
+
 // 1. Move CORS to the TOP
 const allowedOrigins = [
   "https://advanced-inventory-management-system.vercel.app",
