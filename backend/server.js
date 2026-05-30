@@ -29,7 +29,8 @@ const app = express();
 
 // 1. Move CORS to the TOP
 const allowedOrigins = [
-  "https://advanced-inventory-management-system.vercel.app", 
+  "https://advanced-inventory-management-system.vercel.app",
+  "https://fyp-rho-two.vercel.app",
   "http://localhost:3000"
 ];
 
