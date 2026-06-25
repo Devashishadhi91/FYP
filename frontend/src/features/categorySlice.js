@@ -13,9 +13,10 @@ const initialState = {
 
 export const CreateCategory = createAsyncThunk(
   'category/createcategory',
-  async (Category, { rejectWithValue }) => {
+  async (Category, { dispatch, rejectWithValue }) => {
     try {
       const response = await axiosInstance.post("category/createcategory", Category, { withCredentials: true });
+      dispatch(gettingallCategory());
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || "Category creation failed");
@@ -96,8 +97,7 @@ const categorySlice = createSlice({
       })
       .addCase(CreateCategory.fulfilled, (state, action) => {
         state.iscreatedCategory = false;
-        state.getallCategory.push(action.payload);
-   
+        // Data is refreshed via dispatch(gettingallCategory()) in the thunk
       })
       .addCase(CreateCategory.rejected, (state, action) => {
         state.iscreatedCategory = false;

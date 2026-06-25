@@ -14,9 +14,10 @@ const initialState = {
 
 export const CreateSales = createAsyncThunk(
     'sales/createsales',
-  async (salesData, { rejectWithValue }) => {
+  async (salesData, { dispatch, rejectWithValue }) => {
     try {
       const response = await axiosInstance.post("sales/createsales", salesData, { withCredentials: true });
+      dispatch(gettingallSales());
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || "sales creation failed");
@@ -127,9 +128,7 @@ const salesSlice = createSlice({
       })
       .addCase( CreateSales .fulfilled, (state, action) => {
         state.iscreatedsales = false;
-        if (!state.getallsales) state.getallsales = [];
-        state.getallsales.push(action.payload.sale);
-  
+        // Data is refreshed via dispatch(gettingallSales()) in the thunk
       })
       .addCase( CreateSales .rejected, (state, action) => {
         state.iscreatedsales = false;

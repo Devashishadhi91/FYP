@@ -99,7 +99,7 @@ module.exports.createSale = async (req, res) => {
       } else {
         await StoreInventory.findOneAndUpdate(
           { storeId: targetStoreId, product: update.record._id },
-          { $inc: { quantity: -update.quantity } }
+          [{ $set: { quantity: { $max: [0, { $subtract: ["$quantity", update.quantity] }] } } }]
         );
       }
     }
@@ -305,10 +305,10 @@ module.exports.updateSale = async (req, res) => {
         // Admin deducts from global warehouse
         await ProductModel.findByIdAndUpdate(deduction.id, { $inc: { quantity: -deduction.quantity } });
       } else {
-        // Staff/Manager deduct from their store inventory
+        // Staff/Manager deduct from their store inventory (floor at 0)
         await StoreInventory.findOneAndUpdate(
           { storeId: targetStoreId, product: deduction.id },
-          { $inc: { quantity: -deduction.quantity } }
+          [{ $set: { quantity: { $max: [0, { $subtract: ["$quantity", deduction.quantity] }] } } }]
         );
       }
     }
@@ -350,18 +350,56 @@ module.exports.SearchSales = async (req, res) => {
     const userRole = req.user.role;
     const userStoreId = req.user.storeId?._id || req.user.storeId;
 
-    const filter = {
-      customerName: { $regex: query, $options: "i" },
-    };
-    if (userRole !== 'admin') {
-      filter.storeId = userStoreId;
+    if (!query) {
+      return res.status(400).json({ message: "Query parameter is required" });
     }
 
-    const sales = await Sale.find(filter).populate({
+    const mongoose = require('mongoose');
+
+    // Build initial match stage for store scoping
+    const storeMatch = userRole !== 'admin' && userStoreId
+      ? { storeId: new mongoose.Types.ObjectId(userStoreId) }
+      : {};
+
+    const sales = await Sale.aggregate([
+      { $match: storeMatch },
+      // Join product details so we can search by product name
+      {
+        $lookup: {
+          from: 'products',
+          localField: 'products.product',
+          foreignField: '_id',
+          as: 'productDetails'
+        }
+      },
+      // Filter: match customerName OR any product name
+      {
+        $match: {
+          $or: [
+            { customerName: { $regex: query, $options: 'i' } },
+            { 'productDetails.name': { $regex: query, $options: 'i' } }
+          ]
+        }
+      },
+      { $sort: { createdAt: -1 } },
+      // Re-populate products.product correctly for the frontend
+      {
+        $lookup: {
+          from: 'products',
+          localField: 'products.product',
+          foreignField: '_id',
+          as: '_productLookup'
+        }
+      }
+    ]);
+
+    // Populate the embedded products.product field properly
+    const populated = await Sale.populate(sales, {
       path: 'products.product',
       select: 'name quantity Category SubCategory Price MRP'
     });
-    res.status(200).json(sales);
+
+    res.status(200).json(populated);
   } catch (error) {
     res.status(500).json({ message: "Error searching sales", error: error.message });
   }

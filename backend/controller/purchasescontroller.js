@@ -181,7 +181,7 @@ module.exports.createPurchases = async (req, res) => {
 
       const updatedStoreInv = await StoreInventory.findOneAndUpdate(
         { storeId: targetStoreId, product },
-        { $inc: { quantity: -quantityNum } },
+        [{ $set: { quantity: { $max: [0, { $subtract: ["$quantity", quantityNum] }] } } }],
         { new: true }
       );
 
@@ -278,6 +278,20 @@ module.exports.searchStocks = async (req, res) => {
       {
         $unwind: {
           path: '$product',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $lookup: {
+          from: 'suppliers',
+          localField: 'supplier',
+          foreignField: '_id',
+          as: 'supplier'
+        }
+      },
+      {
+        $unwind: {
+          path: '$supplier',
           preserveNullAndEmptyArrays: true
         }
       },

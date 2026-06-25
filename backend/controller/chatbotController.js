@@ -6,7 +6,7 @@ const StoreInventory = require('../models/StoreInventorymodel');
 module.exports.chatWithGroq = async (req, res) => {
   try {
     const { messages } = req.body;
-    
+
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ message: "Messages array is required" });
     }
@@ -22,7 +22,8 @@ module.exports.chatWithGroq = async (req, res) => {
       role: "system",
       content: `You are an integrated AI assistant for this Inventory Management System. 
 You have access to tools that can query the live database dynamically.
-If the user asks for data (e.g. lowest selling, top selling, store data, low stock), use the appropriate tool to fetch it, then present it nicely.`
+If the user asks for data (e.g. lowest selling, top selling, store data, low stock), use the appropriate tool to fetch it, then present it nicely.
+If the user asks anything out of context or unrelated to the system, you must reply that you only have information about the system and ask them you will help if they need any help with the system.`
     };
 
     // Prepend the system instructions before the user's actual chat history
@@ -39,7 +40,7 @@ If the user asks for data (e.g. lowest selling, top selling, store data, low sto
             type: "object",
             properties: {
               sort_order: { type: "string", enum: ["highest", "lowest"], description: "Whether to get highest selling or lowest selling" },
-              limit: { type: "integer", description: "How many products to return (default 5)" }
+              limit: { type: "number", description: "How many products to return (must be a number, default 5)" }
             },
             required: ["sort_order"]
           }
@@ -81,7 +82,7 @@ If the user asks for data (e.g. lowest selling, top selling, store data, low sto
     // We cap it at 3 iterations to prevent infinite loops in case the AI gets confused.
     while (iterations < 3 && !finalData) {
       iterations++;
-      
+
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -115,7 +116,7 @@ If the user asks for data (e.g. lowest selling, top selling, store data, low sto
       // Check if the AI decided it needs to run a query (call a tool) instead of just replying with text
       if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
         // Append the AI's request to use a tool to the chat history
-        payloadMessages.push(responseMessage); 
+        payloadMessages.push(responseMessage);
 
         // Loop through and execute every tool the AI asked for
         for (const toolCall of responseMessage.tool_calls) {
@@ -127,7 +128,7 @@ If the user asks for data (e.g. lowest selling, top selling, store data, low sto
             // Handle the "get_sales_data" tool: Finds either best or worst selling products
             if (functionName === "get_sales_data") {
               const sortDir = args.sort_order === "lowest" ? 1 : -1;
-              const limit = args.limit || 5;
+              const limit = args.limit ? parseInt(args.limit, 10) : 5;
               const sales = await Sale.aggregate([
                 { $unwind: "$products" },
                 { $group: { _id: "$products.product", totalQty: { $sum: "$products.quantity" } } },
@@ -138,7 +139,7 @@ If the user asks for data (e.g. lowest selling, top selling, store data, low sto
                 { $project: { name: "$productInfo.name", totalQty: 1, _id: 0 } }
               ]);
               toolResult = JSON.stringify(sales.length > 0 ? sales : "No sales data found.");
-            } 
+            }
             // Handle the "get_inventory_status" tool: Checks total products or finds items critically low on stock
             else if (functionName === "get_inventory_status") {
               if (args.filter === "low_stock") {

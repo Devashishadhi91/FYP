@@ -4,8 +4,8 @@ const {createSupplier,searchSupplier,editSupplier,getAllSuppliers,deleteSupplier
 
 router.post("/createsupplier", createSupplier); 
 router.get("/getallsupplier", getAllSuppliers); 
-router.get("/:supplierId",getSupplierById); 
-router.get("/searchSupplier",searchSupplier)
+router.get("/searchSupplier", searchSupplier);
+router.get("/:supplierId", getSupplierById); 
 router.put("/updatesupplier/:supplierId", editSupplier); 
 router.delete("/:supplierId", deleteSupplier); 
 

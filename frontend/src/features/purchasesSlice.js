@@ -13,9 +13,10 @@ const initialState = {
 
 export const createPurchases = createAsyncThunk(
   'stocktransaction/createPurchases',
-  async (Stocks, { rejectWithValue }) => {
+  async (Stocks, { dispatch, rejectWithValue }) => {
     try {
       const response = await axiosInstance.post("stocktransaction/createPurchases", Stocks, { withCredentials: true });
+      dispatch(getAllPurchases());
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || "Stocks creation failed");
@@ -85,8 +86,7 @@ const purchasesSlice = createSlice({
       })
       .addCase(createPurchases .fulfilled, (state, action) => {
         state.iscreatedStocks = false;
-        state.getallStocks.push(action.payload);
-
+        // Data is refreshed via dispatch(getAllPurchases()) in the thunk
       })
       .addCase(createPurchases .rejected, (state, action) => {
         state.iscreatedStocks = false;

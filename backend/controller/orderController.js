@@ -77,6 +77,29 @@ const createOrder = async (req, res) => {
 
         await newOrder.save();
         
+        // Create pending purchase records so they show in staff's purchase page
+        for (const item of products) {
+            const { product, quantity } = item;
+            
+            // Get current store inventory to set previousQuantity
+            const storeInv = await StoreInventory.findOne({ storeId: userStoreId, product });
+            const currentStoreQty = storeInv?.quantity || 0;
+
+            const newPurchase = new Purchases({
+                storeId: userStoreId,
+                product: product,
+                type: 'purchase', // Using 'purchase' to distinguish from direct 'Stock-in'
+                quantityChanged: quantity,
+                previousQuantity: currentStoreQty,
+                newQuantity: currentStoreQty, // Hasn't increased yet since it's pending
+                orderId: newOrder._id,
+                status: status || 'pending',
+                userId: req.user._id,
+                supplier: supplier || null
+            });
+            await newPurchase.save();
+        }
+
         res.status(201).json({ success: true, message: "Order created successfully", order: newOrder });
     } catch (error) {
         logger.error('Error creating order:', error);
@@ -149,20 +172,20 @@ const updatestatusOrder = async (req, res) => {
     const { OrderId } = req.params;
     const { status } = req.body;
     
-    if (!['pending', 'shipped', 'delivered'].includes(status)) {
-      return res.status(400).json({ message: "Invalid status. Must be 'pending', 'shipped', or 'delivered'." });
+    if (!['pending', 'shipped', 'delivered', 'returned'].includes(status)) {
+      return res.status(400).json({ message: "Invalid status. Must be 'pending', 'shipped', 'delivered', or 'returned'." });
     }
 
     const order = await Order.findById(OrderId);
     if (!order) return res.status(404).json({ message: "Order not found" });
 
-    if (order.isLocked) {
+    if (order.isLocked && status !== 'returned') {
       return res.status(400).json({ message: "This order has been delivered and is locked." });
     }
 
-    // Prevent backwards changes
-    const statuses = { 'pending': 0, 'shipped': 1, 'delivered': 2 };
-    if (statuses[status] <= statuses[order.status]) {
+    // Prevent backwards changes, except for returned
+    const statuses = { 'pending': 0, 'shipped': 1, 'delivered': 2, 'returned': 3 };
+    if (status !== 'returned' && statuses[status] <= statuses[order.status]) {
       console.log("STATUS ERROR:", status, order.status);
       return res.status(400).json({ message: "Invalid status transition (cannot move backwards or to same status)." });
     }
@@ -228,6 +251,73 @@ const updatestatusOrder = async (req, res) => {
         console.log("================= ERROR IN ORDER DELIVERY ==================");
         console.log(err);
         return res.status(400).json({ message: err.message || "Failed to process delivery. No changes were made." });
+      }
+    } else if (status === 'returned') {
+      try {
+        if (order.status === 'delivered') {
+          // Revert the delivery
+          for (const item of order.products) {
+            const prod = await ProductModel.findById(item.product);
+            if (!prod) throw new Error(`Product ${item.product} not found`);
+
+            prod.quantity += item.quantity; // Put back to warehouse
+            await prod.save();
+
+            const storeInvBefore = await StoreInventory.findOne({ storeId: order.storeId, product: item.product });
+            const qtyBefore = storeInvBefore?.quantity || 0;
+            
+            const updatedInv = await StoreInventory.findOneAndUpdate(
+              { storeId: order.storeId, product: item.product },
+              [{ $set: { quantity: { $max: [0, { $subtract: ["$quantity", item.quantity] }] } } }],
+              { new: true }
+            );
+
+            await InventoryMovementLog.create({
+              orderId: order._id,
+              product: item.product,
+              storeId: order.storeId,
+              warehouseQtyBefore: prod.quantity - item.quantity,
+              warehouseQtyAfter: prod.quantity,
+              storeQtyBefore: qtyBefore,
+              storeQtyAfter: updatedInv.quantity,
+              quantityTransferred: -item.quantity,
+              performedBy: req.user._id
+            });
+
+            await Purchases.findOneAndUpdate(
+              { orderId: order._id, product: item.product },
+              { status: 'cancelled', newQuantity: updatedInv.quantity, previousQuantity: qtyBefore }
+            );
+          }
+        } else {
+          // Just cancel the purchase records if it wasn't delivered yet
+          for (const item of order.products) {
+            await Purchases.findOneAndUpdate(
+              { orderId: order._id, product: item.product },
+              { status: 'cancelled' }
+            );
+          }
+        }
+
+        order.status = 'returned';
+        order.isLocked = true; // Lock it since it's a final state
+        order.processedBy = req.user._id;
+        await order.save();
+
+        await logActivity({
+          action: "Order Returned",
+          description: `Order ${order._id} was returned.`,
+          entity: "order",
+          entityId: order._id,
+          userId: req.user._id,
+          ipAddress: req.ip
+        });
+
+        return res.status(200).json({ message: "Order returned successfully.", order });
+      } catch (err) {
+        console.log("================= ERROR IN ORDER RETURN ==================");
+        console.log(err);
+        return res.status(400).json({ message: err.message || "Failed to process return. No changes were made." });
       }
     } else {
       order.status = status;

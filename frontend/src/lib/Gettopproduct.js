@@ -254,7 +254,7 @@ const CategoryDrillDown = ({ categoryData, color, onBack }) => {
 };
 
 /* ── Main Component ── */
-function Gettopproduct() {
+function Gettopproduct({ storeId }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -265,7 +265,9 @@ function Gettopproduct() {
     try {
       setLoading(true);
       setError(null);
+      const params = storeId && storeId !== 'all' ? { storeId } : {};
       const res = await axiosInstance.get("/product/category-stock-distribution", {
+        params,
         withCredentials: true,
       });
       setCategories(res.data.categories || []);
@@ -274,23 +276,24 @@ function Gettopproduct() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [storeId]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const pieData = categories.map((cat, i) => ({
-    name: cat.category,
-    value: cat.totalQuantity,
-    // flatten all fields for tooltip access
-    category: cat.category,
-    totalQuantity: cat.totalQuantity,
-    totalValue: cat.totalValue,
-    productCount: cat.productCount,
-    topProducts: cat.topProducts,
-    fill: PALETTE[i % PALETTE.length],
-  }));
+  const pieData = categories
+    .filter(cat => cat.totalQuantity > 0)
+    .map((cat, i) => ({
+      name: cat.category,
+      value: cat.totalQuantity,
+      category: cat.category,
+      totalQuantity: cat.totalQuantity,
+      totalValue: cat.totalValue,
+      productCount: cat.productCount,
+      topProducts: cat.topProducts,
+      fill: PALETTE[i % PALETTE.length],
+    }));
 
   const handleSliceClick = (data) => {
     if (data) {
@@ -365,7 +368,7 @@ function Gettopproduct() {
     );
   }
 
-  if (categories.length === 0) {
+  if (categories.length === 0 || pieData.length === 0) {
     return (
       <div
         style={{
@@ -378,7 +381,7 @@ function Gettopproduct() {
           fontWeight: 600,
         }}
       >
-        No category data available.
+        No stock data available for this store.
       </div>
     );
   }

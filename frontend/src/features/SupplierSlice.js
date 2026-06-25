@@ -151,10 +151,8 @@ const supplierSlice = createSlice({
       })
 
  .addCase(SearchSupplier.fulfilled,(state,action)=>{
-
-   state.searchdata=action.payload
-
-
+   // Backend returns { success, suppliers: [...] }, extract the array
+   state.searchdata = action.payload.suppliers || action.payload;
  })
  
 

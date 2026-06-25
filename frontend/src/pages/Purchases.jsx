@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import TopNavbar from "../Components/TopNavbar";
-import { IoMdAdd } from "react-icons/io";
+import { IoMdAdd, IoMdRemove } from "react-icons/io";
 import { MdKeyboardDoubleArrowLeft } from "react-icons/md";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -43,35 +43,47 @@ function Purchases() {
     if (role === "admin") navigate("/AdminDashboard/supplier");
     else if (role === "manager") navigate("/ManagerDashboard/supplier");
   };
-const[query,setquery]=useState("");
-  const [category, setCategory] = useState("");
-  const [subCategory, setSubCategory] = useState("");
-  const [product, setproduct] = useState("");
-  const [type, settype] = useState("Stock-in");
-  const [quantity, setquantity] = useState(1);
+const [query, setquery] = useState("");
   const [supplier, setsupplier] = useState("");
+  const [items, setItems] = useState([{ category: "", subCategory: "", product: "", quantity: 1 }]);
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
-  const getProductPrice = () => {
-    if (!product) return 0;
-    const selectedProd = getallproduct?.find(p => p._id === product);
-    return selectedProd?.Price || selectedProd?.MRP || 0;
-  };
-
-  // Derive the products that belong to the currently selected supplier
-  const selectedSupplierObj = getallSupplier?.find(s => s._id === supplier);
-  const supplierProductIds = selectedSupplierObj?.productsSupplied?.map(p =>
-    typeof p === "object" ? p._id : p
-  ) || [];
+  // Products belonging to the selected supplier
   const supplierProducts = supplier
-    ? getallproduct?.filter(p => supplierProductIds.includes(p._id))
+    ? getallproduct?.filter(p => {
+        const pSupplierId = typeof p.supplier === 'object' ? p.supplier?._id : p.supplier;
+        return pSupplierId === supplier;
+      }) || []
     : [];
 
+  const getItemPrice = (productId) => {
+    if (!productId) return 0;
+    const prod = getallproduct?.find(p => p._id === productId);
+    return prod?.Price || prod?.MRP || 0;
+  };
+
+  const addItem = () => setItems(prev => [...prev, { category: "", subCategory: "", product: "", quantity: 1 }]);
+
+  const removeItem = (index) => {
+    if (items.length > 1) setItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleItemChange = (index, field, value) => {
+    setItems(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      // Reset downstream fields when category/subCategory changes
+      if (field === 'category') { updated[index].subCategory = ""; updated[index].product = ""; }
+      if (field === 'subCategory') { updated[index].product = ""; }
+      return updated;
+    });
+  };
+
   useEffect(() => {
-    if ( query.trim() !== "") {
+    if (query.trim() !== "") {
       const repeatTimeout = setTimeout(() => {
         dispatch(searchstockdata(query));
         setCurrentPage(1);
@@ -83,10 +95,6 @@ const[query,setquery]=useState("");
     }
   }, [query, dispatch]);
 
-
-
-
-
   useEffect(() => {
     dispatch(gettingallproducts());
     dispatch(getAllPurchases());
@@ -94,31 +102,38 @@ const[query,setquery]=useState("");
     dispatch(gettingallCategory());
   }, [dispatch]);
 
-
   const resetForm = () => {
-    setCategory("");
-    setSubCategory("");
-    setproduct("");
-    settype("Stock-in");
-    setquantity(1);
     setsupplier("");
+    setItems([{ category: "", subCategory: "", product: "", quantity: 1 }]);
   };
 
 
   const submitstocktranscation = async (event) => {
     event.preventDefault();
-    const StocksData = {product, type,quantity , supplier };
 
-    dispatch(createPurchases(StocksData))
-      .unwrap()
-      .then(() => {
-        toast.success("Purchase added successfully");
-        resetForm();
-        setIsFormVisible(false);
-      })
-      .catch(() => {
-        toast.error("Purchase add unsuccessful");
-      });
+    // Validate all items have a product selected
+    const invalidItems = items.filter(item => !item.product);
+    if (invalidItems.length > 0) {
+      toast.error("Please select a product for every row.");
+      return;
+    }
+
+    try {
+      // Submit each item as a separate purchase request
+      for (const item of items) {
+        await dispatch(createPurchases({
+          product: item.product,
+          type: "Stock-in",
+          quantity: item.quantity,
+          supplier
+        })).unwrap();
+      }
+      toast.success(`${items.length} purchase${items.length > 1 ? 's' : ''} added successfully!`);
+      resetForm();
+      setIsFormVisible(false);
+    } catch (err) {
+      toast.error(err || "One or more purchases failed.");
+    }
   };
 
 
@@ -193,9 +208,7 @@ const[query,setquery]=useState("");
                   value={supplier}
                   onChange={(e) => {
                     setsupplier(e.target.value);
-                    setCategory("");
-                    setSubCategory("");
-                    setproduct("");
+                    setItems([{ category: "", subCategory: "", product: "", quantity: 1 }]);
                   }}
                   className="w-full h-10 px-2 border-2 rounded-lg outline-none focus:border-blue-500 bg-white"
                   required
@@ -209,101 +222,116 @@ const[query,setquery]=useState("");
                 </select>
               </div>
 
-              {/* ── Products table ── */}
+              {/* ── Items ── */}
               <div className="mb-6">
-                <label className="block text-sm font-bold text-gray-700 mb-2">Products</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-bold text-gray-700">Products</label>
+                  <button
+                    type="button"
+                    onClick={addItem}
+                    disabled={!supplier}
+                    className="flex items-center gap-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg px-2.5 py-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <IoMdAdd className="text-sm" /> Add Item
+                  </button>
+                </div>
+
                 {!supplier && (
                   <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
                     ⚠ Please select a supplier first to see available products.
                   </p>
                 )}
 
-                <div className="p-4 border-2 border-gray-100 rounded-xl mb-4 bg-gray-50">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-gray-500">Category</label>
+                {items.map((item, index) => (
+                  <div key={index} className="relative p-4 border-2 border-gray-100 rounded-xl mb-3 bg-gray-50">
+                    {items.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeItem(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 shadow-md hover:bg-red-600"
+                      >
+                        <IoMdRemove className="text-sm" />
+                      </button>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-gray-500">Category</label>
+                        <select
+                          value={item.category}
+                          onChange={(e) => handleItemChange(index, 'category', e.target.value)}
+                          className="w-full h-9 px-2 text-sm border rounded-lg mt-1 outline-none focus:border-blue-500 bg-white"
+                          required
+                        >
+                          <option value="">Select</option>
+                          {[...new Set(supplierProducts?.map(p => p.Category).filter(Boolean))].map((cat) => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-gray-500">Sub-Category</label>
+                        <select
+                          value={item.subCategory}
+                          onChange={(e) => handleItemChange(index, 'subCategory', e.target.value)}
+                          className="w-full h-9 px-2 text-sm border rounded-lg mt-1 outline-none focus:border-blue-500 bg-white"
+                          required
+                        >
+                          <option value="">Select</option>
+                          {[...new Set(supplierProducts?.filter(p => p.Category === item.category).map(p => p.SubCategory).filter(Boolean))].map((sub) => (
+                            <option key={sub} value={sub}>{sub}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <label className="text-xs text-gray-500">Product</label>
                       <select
-                        value={category}
-                        onChange={(e) => {
-                          setCategory(e.target.value);
-                          setSubCategory("");
-                          setproduct("");
-                        }}
+                        value={item.product}
+                        onChange={(e) => handleItemChange(index, 'product', e.target.value)}
                         className="w-full h-9 px-2 text-sm border rounded-lg mt-1 outline-none focus:border-blue-500 bg-white"
                         required
                       >
-                        <option value="">Select</option>
-                        {[...new Set(supplierProducts?.map(p => p.Category).filter(Boolean))].map((cat) => (
-                          <option key={cat} value={cat}>{cat}</option>
+                        <option value="">Select Product</option>
+                        {supplierProducts?.filter(p => p.Category === item.category && p.SubCategory === item.subCategory).map((prod) => (
+                          <option key={prod._id} value={prod._id}>{prod.name}</option>
                         ))}
                       </select>
                     </div>
 
-                    <div>
-                      <label className="text-xs text-gray-500">Sub-Category</label>
-                      <select
-                        value={subCategory}
-                        onChange={(e) => {
-                          setSubCategory(e.target.value);
-                          setproduct("");
-                        }}
-                        className="w-full h-9 px-2 text-sm border rounded-lg mt-1 outline-none focus:border-blue-500 bg-white"
-                        required
-                      >
-                        <option value="">Select</option>
-                        {[...new Set(supplierProducts?.filter(p => p.Category === category).map(p => p.SubCategory).filter(Boolean))].map((sub) => (
-                          <option key={sub} value={sub}>{sub}</option>
-                        ))}
-                      </select>
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div>
+                        <label className="text-xs text-gray-500">Price</label>
+                        <input
+                          type="number"
+                          value={getItemPrice(item.product)}
+                          readOnly
+                          className="w-full h-9 px-2 text-sm border bg-gray-100 rounded-lg mt-1 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">Quantity</label>
+                        <input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                          className="w-full h-9 px-2 text-sm border rounded-lg mt-1 outline-none focus:border-blue-500 bg-white"
+                          min="1"
+                          required
+                        />
+                      </div>
                     </div>
                   </div>
-
-                  <div className="mt-3">
-                    <label className="text-xs text-gray-500">Product</label>
-                    <select
-                      value={product}
-                      onChange={(e) => setproduct(e.target.value)}
-                      className="w-full h-9 px-2 text-sm border rounded-lg mt-1 outline-none focus:border-blue-500 bg-white"
-                      required
-                    >
-                      <option value="">Select Product</option>
-                      {supplierProducts?.filter(p => p.Category === category && p.SubCategory === subCategory).map((prod) => (
-                        <option key={prod._id} value={prod._id}>{prod.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 mt-3">
-                    <div>
-                      <label className="text-xs text-gray-500">Price</label>
-                      <input
-                        type="number"
-                        value={getProductPrice()}
-                        readOnly
-                        className="w-full h-9 px-2 text-sm border bg-gray-100 rounded-lg mt-1 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-gray-500">Quantity</label>
-                      <input
-                        type="number"
-                        value={quantity}
-                        onChange={(e) => setquantity(e.target.value)}
-                        className="w-full h-9 px-2 text-sm border rounded-lg mt-1 outline-none focus:border-blue-500 bg-white"
-                        min="1"
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
 
               <button
                 type="submit"
                 className="bg-blue-800 text-white w-full h-12 rounded-lg hover:bg-blue-700 mt-6 font-bold shadow-lg transition"
               >
-                {iscreatedStocks ? "Adding Purchase..." : "Confirm Purchase"}
+                {iscreatedStocks ? "Adding..." : `Confirm ${items.length} Purchase${items.length > 1 ? 's' : ''}`}
               </button>
             </form>
           </div>

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import Gettopproduct from "../lib/Gettopproduct";
 import TopNavbar from "../Components/TopNavbar";
-import { LuClock, LuActivity, LuTrendingUp } from "react-icons/lu"; 
+import { LuClock, LuActivity, LuTrendingUp } from "react-icons/lu";
 import { MdOutlineProductionQuantityLimits, MdMoney, MdErrorOutline } from "react-icons/md";
 import { FiBox, FiX } from "react-icons/fi";
 import { getrecentActivityLogs } from "../features/activitySlice";
@@ -20,7 +20,7 @@ function Dashboardpage() {
   const { Authuser } = useSelector((state) => state.auth);
   const isStaff = Authuser?.role === 'staff';
   const isAdminOrManager = Authuser?.role === 'admin' || Authuser?.role === 'manager';
-  
+
   const [filterStoreId, setFilterStoreId] = useState("all");
   const [revenueData, setRevenueData] = useState([]);
   const [currentMonth, setCurrentMonth] = useState({ revenue: 0, transactions: 0 });
@@ -67,7 +67,7 @@ function Dashboardpage() {
     const handleNewLog = (newLog) => {
       console.log("New activity log:", newLog);
     };
-    
+
     socket.on("newActivityLog", handleNewLog);
 
     return () => {
@@ -79,7 +79,8 @@ function Dashboardpage() {
     setStockModal({ open: true, type });
     setStockAlertsLoading(true);
     try {
-      const response = await axiosInstance.get("/product/stock-alerts", { withCredentials: true });
+      const params = filterStoreId !== 'all' ? { storeId: filterStoreId } : {};
+      const response = await axiosInstance.get("/product/stock-alerts", { params, withCredentials: true });
       setStockAlerts({ lowStock: response.data.lowStock, outOfStock: response.data.outOfStock });
     } catch (error) {
       console.error("Error fetching stock alerts:", error);
@@ -133,7 +134,7 @@ function Dashboardpage() {
       <div className="p-8">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-gray-800">Executive Overview</h1>
-          {isAdminOrManager ? (
+          {Authuser?.role === 'admin' ? (
             <div className="flex items-center space-x-3">
               <label className="text-sm font-bold text-gray-600">Store Filter:</label>
               <select
@@ -157,7 +158,7 @@ function Dashboardpage() {
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {stats.map((stat, idx) => (
-            <div 
+            <div
               key={idx}
               onClick={stat.clickable ? () => openStockModal(stat.modalType) : undefined}
               className={`bg-white shadow-md rounded-2xl p-6 border-b-4 ${stat.color} flex flex-col items-center justify-center transition-transform hover:scale-105 hover:shadow-lg ${stat.clickable ? 'cursor-pointer group' : ''}`}
@@ -210,20 +211,20 @@ function Dashboardpage() {
               </div>
             </div>
           </div>
-          
+
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%" minWidth={400} minHeight={300}>
               <AreaChart data={revenueData}>
                 <defs>
                   <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} />
-                <Tooltip 
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
+                <Tooltip
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                 />
                 <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
@@ -236,7 +237,7 @@ function Dashboardpage() {
           {/* Top Products Chart Section */}
           <div className="xl:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="text-xl font-bold text-gray-800 mb-6">Stock Distribution</h2>
-            <Gettopproduct />
+            <Gettopproduct storeId={filterStoreId} />
           </div>
 
           {/* Recent Activity Section */}
@@ -278,7 +279,7 @@ function Dashboardpage() {
         >
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          
+
           {/* Modal */}
           <div
             className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col overflow-hidden animate-[modalIn_0.25s_ease-out]"
@@ -310,7 +311,6 @@ function Dashboardpage() {
                 </div>
               ) : modalProducts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 space-y-2">
-                  <p className="text-4xl">🎉</p>
                   <p className="text-sm font-bold text-gray-600">No {stockModal.type === 'lowStock' ? 'low stock' : 'out of stock'} items!</p>
                   <p className="text-xs text-gray-400">All inventory levels look healthy.</p>
                 </div>
@@ -341,11 +341,10 @@ function Dashboardpage() {
                           </span>
                         </td>
                         <td className="py-3 text-center">
-                          <span className={`inline-block min-w-[36px] text-center text-xs font-bold px-2 py-1 rounded-full ${
-                            product.quantity === 0
+                          <span className={`inline-block min-w-[36px] text-center text-xs font-bold px-2 py-1 rounded-full ${product.quantity === 0
                               ? 'bg-red-100 text-red-700'
                               : 'bg-orange-100 text-orange-700'
-                          }`}>
+                            }`}>
                             {product.quantity}
                           </span>
                         </td>

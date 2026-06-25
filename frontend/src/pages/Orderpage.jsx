@@ -14,14 +14,15 @@ import {
   updatestatusOrder,
   gettingallOrder,
   SearchOrder,
- 
+
 } from "../features/orderSlice";
 
 import { gettingallproducts } from "../features/productSlice";
 import { gettingallCategory } from "../features/categorySlice";
+import { fetchAllStores } from "../features/storeSlice";
 
 function Orderpage() {
- 
+
   const {
     getorder,
     isgetorder,
@@ -31,12 +32,14 @@ function Orderpage() {
     iseditorder,
     searchdata,
     isshowgraph,
-  statusgraph
+    statusgraph
   } = useSelector((state) => state.order);
   const { getallproduct } = useSelector((state) => state.product);
   const { getallCategory } = useSelector((state) => state.category);
+  const { stores } = useSelector((state) => state.store);
   const { Authuser, isUserSignup } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
+  const isAdminOrManager = Authuser?.role === 'admin' || Authuser?.role === 'manager';
   const [status, setstatus] = useState(false);
   const [query, setquery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -44,6 +47,7 @@ function Orderpage() {
   const [Price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("");
   const [Description, setDescription] = useState("");
+  const [storeId, setStoreId] = useState("");
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [selectedOrder, setselectedOrder] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -53,8 +57,8 @@ function Orderpage() {
     dispatch(gettingallOrder());
     dispatch(gettingallproducts());
     dispatch(gettingallCategory());
- 
-  }, [dispatch,Authuser]);
+    if (isAdminOrManager) dispatch(fetchAllStores());
+  }, [dispatch, Authuser, isAdminOrManager]);
 
   useEffect(() => {
     dispatch(gettingallOrder());
@@ -103,8 +107,8 @@ function Orderpage() {
         price: Number(Price),
       }],
     };
-    
-    dispatch( updatestatusOrder({ OrderId: selectedOrder._id,  updatedData }))
+
+    dispatch(updatestatusOrder({ OrderId: selectedOrder._id, updatedData }))
       .unwrap()
       .then(() => {
         toast.success("Order updated successfully");
@@ -119,24 +123,30 @@ function Orderpage() {
 
   const submitOrder = async (event) => {
     event.preventDefault();
-  
+
 
     if (!Product || Price === "" || Price === null || Price === undefined || !quantity) {
       toast.error("Product, Price and Quantity are required");
       return;
     }
-  
+
+    if (isAdminOrManager && !storeId) {
+      toast.error("Store selection is required");
+      return;
+    }
+
     const orderData = {
       user: Authuser?.id || "",
+      storeId: isAdminOrManager ? storeId : undefined,
       Description,
       status,
       products: [{
-        product: Product,  
-        price: Number(Price), 
+        product: Product,
+        price: Number(Price),
         quantity: Number(quantity)
       }]
     };
-  
+
     try {
       const result = await dispatch(createdOrder(orderData)).unwrap();
       toast.success("Order created successfully");
@@ -154,13 +164,14 @@ function Orderpage() {
     setQuantity("");
     setDescription("");
     setstatus("");
+    setStoreId("");
   };
 
   const handleEditClick = (order) => {
     setselectedOrder(order);
     const orderProduct = order.products && order.products.length > 0 ? order.products[0] : {};
     setProduct(orderProduct.product?._id || "");
-    
+
     // Extract category from the selected product
     const prodDetails = getallproduct?.find(p => p._id === orderProduct.product?._id);
     setSelectedCategory(prodDetails?.Category || "");
@@ -168,12 +179,13 @@ function Orderpage() {
     setPrice(orderProduct.price || "");
     setQuantity(orderProduct.quantity || "");
     setstatus(order.status || "");
-    setDescription(order.Description|| "");
+    setDescription(order.Description || "");
+    setStoreId(order.storeId || "");
     setIsFormVisible(true);
   };
 
   const handleremove = async (OrderId) => {
-    dispatch( Removedorder(OrderId))
+    dispatch(Removedorder(OrderId))
       .unwrap()
       .then(() => {
         toast.success("Order removed successfully");
@@ -192,8 +204,8 @@ function Orderpage() {
   const handleNextPage = () => { if (currentPage < totalPages) setCurrentPage(currentPage + 1); };
   const handlePrevPage = () => { if (currentPage > 1) setCurrentPage(currentPage - 1); };
 
-  const filteredProducts = selectedCategory 
-    ? getallproduct?.filter(p => p.Category === selectedCategory) 
+  const filteredProducts = selectedCategory
+    ? getallproduct?.filter(p => p.Category === selectedCategory)
     : getallproduct;
 
 
@@ -201,7 +213,7 @@ function Orderpage() {
     <div className="bg-base-100 min-h-screen">
       <TopNavbar />
 
-      < OrderStatusChart className="mt-10 mb-10 mx-auto"/>
+      < OrderStatusChart className="mt-10 mb-10 mx-auto" />
 
       <div className="mt-12 ml-5">
         <div className="flex items-center space-x-4">
@@ -240,6 +252,31 @@ function Orderpage() {
 
               <div className="p-8">
                 <form onSubmit={selectedOrder ? handleEditSubmit : submitOrder} className="space-y-5">
+                  {isAdminOrManager && (
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Store</label>
+                      <div className="relative">
+                        <select
+                          value={storeId}
+                          onChange={(e) => setStoreId(e.target.value)}
+                          disabled={!!selectedOrder}
+                          className="w-full h-12 px-4 border border-gray-200 rounded-xl bg-gray-50 text-gray-800 outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all appearance-none font-medium disabled:opacity-60"
+                          required
+                        >
+                          <option value="">Select a Store</option>
+                          {stores?.map((store) => (
+                            <option key={store._id} value={store._id}>
+                              {store.name}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1.5">Category</label>
                     <div className="relative">
@@ -273,11 +310,11 @@ function Orderpage() {
                         onChange={(e) => {
                           const selectedProductId = e.target.value;
                           setProduct(selectedProductId);
-                          
+
                           const selectedProdDetails = getallproduct?.find(p => p._id === selectedProductId);
                           if (selectedProdDetails) {
-                            const productPrice = selectedProdDetails.Price !== undefined && selectedProdDetails.Price !== null 
-                              ? selectedProdDetails.Price 
+                            const productPrice = selectedProdDetails.Price !== undefined && selectedProdDetails.Price !== null
+                              ? selectedProdDetails.Price
                               : selectedProdDetails.MRP;
                             setPrice(productPrice !== undefined && productPrice !== null ? productPrice : "");
                           } else {
@@ -303,7 +340,7 @@ function Orderpage() {
                     <label className="block text-sm font-semibold text-gray-700 mb-1.5">Description</label>
                     <input
                       value={Description}
-                      placeholder="e.g. Expedited shipping requested"
+                      placeholder="Order description"
                       onChange={(e) => setDescription(e.target.value)}
                       type="text"
                       className="w-full h-12 px-4 border border-gray-200 rounded-xl bg-gray-50 text-gray-800 outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium placeholder-gray-400"
@@ -348,6 +385,7 @@ function Orderpage() {
                         <option value="pending">🟡 Pending</option>
                         <option value="shipped">🔵 Shipped</option>
                         <option value="delivered">🟢 Delivered</option>
+                        <option value="returned">🔴 Returned</option>
                       </select>
                       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -410,12 +448,11 @@ function Orderpage() {
                         {order?.Description || "-"}
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className={`px-2 py-0.5 inline-flex text-[10px] leading-4 font-bold rounded border ${
-                          order?.status?.toLowerCase() === 'completed' || order?.status?.toLowerCase() === 'delivered' ? 'bg-green-50 text-green-700 border-green-200' :
-                          order?.status?.toLowerCase() === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                          order?.status?.toLowerCase() === 'cancelled' ? 'bg-red-50 text-red-700 border-red-200' :
-                          'bg-blue-50 text-blue-700 border-blue-200'
-                        }`}>
+                        <span className={`px-2 py-0.5 inline-flex text-[10px] leading-4 font-bold rounded border ${order?.status?.toLowerCase() === 'completed' || order?.status?.toLowerCase() === 'delivered' ? 'bg-green-50 text-green-700 border-green-200' :
+                            order?.status?.toLowerCase() === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                              order?.status?.toLowerCase() === 'cancelled' || order?.status?.toLowerCase() === 'returned' ? 'bg-red-50 text-red-700 border-red-200' :
+                                'bg-blue-50 text-blue-700 border-blue-200'
+                          }`}>
                           {order?.status?.charAt(0).toUpperCase() + order?.status?.slice(1) || "Unknown"}
                         </span>
                       </td>

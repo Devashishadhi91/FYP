@@ -122,10 +122,17 @@ module.exports.getProduct = async (req, res) => {
 module.exports.getProductStats = async (req, res) => {
   try {
     const userRole = req.user.role;
-    const userStoreId = req.user.storeId?._id || req.user.storeId;
-    
+    const reqStoreId = req.query.storeId;
+    let targetStoreId = null;
+
     if (userRole === 'admin') {
-      // Admin: Get stats from global Product collection (warehouse)
+      targetStoreId = reqStoreId && reqStoreId !== 'all' ? reqStoreId : null;
+    } else {
+      targetStoreId = req.user.storeId?._id || req.user.storeId;
+    }
+    
+    if (!targetStoreId && userRole === 'admin') {
+      // Global stats
       const products = await Product.find({});
       
       let lowStockCount = 0;
@@ -138,7 +145,7 @@ module.exports.getProductStats = async (req, res) => {
         } else if (p.quantity <= (p.lowStockThreshold || 10)) {
           lowStockCount++;
         }
-        totalInventoryValue += (p.quantity * (p.MRP || p.Price || 0));
+        totalInventoryValue += (Math.max(0, p.quantity) * (p.MRP || p.Price || 0));
       });
 
       return res.status(200).json({
@@ -148,48 +155,43 @@ module.exports.getProductStats = async (req, res) => {
         totalInventoryValue
       });
     } else {
-      // Staff/Manager: Get stats from StoreInventory with product details
-      const totalGlobalProducts = await Product.countDocuments({});
-      const storeInventory = await StoreInventory.aggregate([
-        {
-          $match: { storeId: new (require('mongoose').Types.ObjectId)(userStoreId) }
-        },
-        {
-          $lookup: {
-            from: 'products',
-            localField: 'product',
-            foreignField: '_id',
-            as: 'productDetails'
-          }
-        },
-        {
-          $unwind: {
-            path: '$productDetails',
-            preserveNullAndEmptyArrays: true
-          }
-        }
-      ]);
+      if (!targetStoreId) {
+        return res.status(200).json({
+          totalProducts: 0,
+          lowStockCount: 0,
+          outOfStockCount: 0,
+          totalInventoryValue: 0
+        });
+      }
+
+      // Store-specific stats: compare against global catalog
+      const allProducts = await Product.find({}).lean();
+      const storeInventory = await StoreInventory.find({ storeId: targetStoreId }).lean();
+      
+      const inventoryMap = {};
+      storeInventory.forEach(inv => {
+        inventoryMap[inv.product.toString()] = inv.quantity;
+      });
 
       let lowStockCount = 0;
       let outOfStockCount = 0;
       let totalInventoryValue = 0;
-      const productSet = new Set();
 
-      storeInventory.forEach(item => {
-        if (item.product) productSet.add(item.product.toString());
+      allProducts.forEach(p => {
+        const qty = inventoryMap[p._id.toString()] || 0;
         
-        if (item.quantity === 0) {
+        if (qty === 0) {
           outOfStockCount++;
-        } else if (item.quantity <= (item.productDetails?.lowStockThreshold || 10)) {
+        } else if (qty <= (p.lowStockThreshold || 10)) {
           lowStockCount++;
         }
         
-        const price = item.productDetails?.MRP || item.productDetails?.Price || 0;
-        totalInventoryValue += (item.quantity * price);
+        const price = p.MRP || p.Price || 0;
+        totalInventoryValue += (Math.max(0, qty) * price);
       });
 
       return res.status(200).json({
-        totalProducts: totalGlobalProducts,
+        totalProducts: allProducts.length,
         lowStockCount,
         outOfStockCount,
         totalInventoryValue
@@ -280,8 +282,6 @@ module.exports.EditProduct = async (req, res) => {
 module.exports.SearchProduct = async (req, res) => {
   try {
     const { query } = req.query;
-    const userRole = req.user.role;
-    const userStoreId = req.user.storeId?._id || req.user.storeId;
 
     if (!query) {
       return res.status(400).json({ message: "Query parameter is required" });
@@ -295,11 +295,9 @@ module.exports.SearchProduct = async (req, res) => {
       ],
     };
 
-    if (userRole !== 'admin') {
-      filter.storeId = userStoreId;
-    }
-
-    const products = await Product.find(filter);
+    const products = await Product.find(filter)
+      .populate("supplier", "name contactInfo")
+      .populate("storeId", "name");
 
     res.json(products);
   } catch (error) {
@@ -330,42 +328,111 @@ module.exports.getTopProductsByQuantity = async (req, res) => {
 module.exports.getCategoryStockDistribution = async (req, res) => {
   try {
     const userRole = req.user.role;
-    const userStoreId = req.user.storeId;
-    const matchFilter = (userRole === 'admin') ? {} : { storeId: userStoreId };
+    const reqStoreId = req.query.storeId;
+    let targetStoreId = null;
 
-    // Aggregate total quantity per category
-    const categoryAgg = await Product.aggregate([
-      { $match: matchFilter },
-      {
-        $group: {
-          _id: '$Category',
-          totalQuantity: { $sum: '$quantity' },
-          totalValue: { $sum: { $multiply: ['$quantity', { $ifNull: ['$MRP', 0] }] } },
-          productCount: { $sum: 1 },
+    if (userRole === 'admin') {
+      targetStoreId = reqStoreId && reqStoreId !== 'all' ? reqStoreId : null;
+    } else {
+      targetStoreId = req.user.storeId?._id || req.user.storeId;
+    }
+
+    if (!targetStoreId && userRole === 'admin') {
+      // Aggregate total quantity per category using global Product
+      const categoryAgg = await Product.aggregate([
+        { $match: {} },
+        {
+          $group: {
+            _id: '$Category',
+            totalQuantity: { $sum: '$quantity' },
+            totalValue: { $sum: { $multiply: ['$quantity', { $ifNull: ['$MRP', 0] }] } },
+            productCount: { $sum: 1 },
+          },
         },
-      },
-      { $sort: { totalQuantity: -1 } },
-    ]);
+        { $sort: { totalQuantity: -1 } },
+      ]);
 
-    // For each category, get top 5 products by quantity
-    const categoriesWithTopProducts = await Promise.all(
-      categoryAgg.map(async (cat) => {
-        const catFilter = { ...matchFilter, Category: cat._id };
-        const topProducts = await Product.find(catFilter)
-          .sort({ quantity: -1 })
-          .limit(5)
-          .select('name quantity MRP Price');
-        return {
-          category: cat._id,
-          totalQuantity: cat.totalQuantity,
-          totalValue: cat.totalValue,
-          productCount: cat.productCount,
-          topProducts,
-        };
-      })
-    );
+      const categoriesWithTopProducts = await Promise.all(
+        categoryAgg.map(async (cat) => {
+          const topProducts = await Product.find({ Category: cat._id })
+            .sort({ quantity: -1 })
+            .limit(5)
+            .select('name quantity MRP Price');
+          return {
+            category: cat._id,
+            totalQuantity: cat.totalQuantity,
+            totalValue: cat.totalValue,
+            productCount: cat.productCount,
+            topProducts,
+          };
+        })
+      );
+      return res.status(200).json({ success: true, categories: categoriesWithTopProducts });
+    } else {
+      if (!targetStoreId) {
+        return res.status(200).json({ success: true, categories: [] });
+      }
 
-    res.status(200).json({ success: true, categories: categoriesWithTopProducts });
+      // Aggregate using StoreInventory
+      const mongoose = require('mongoose');
+      const categoryAgg = await StoreInventory.aggregate([
+        { $match: { storeId: new mongoose.Types.ObjectId(targetStoreId) } },
+        {
+          $lookup: {
+            from: 'products',
+            localField: 'product',
+            foreignField: '_id',
+            as: 'prod'
+          }
+        },
+        { $unwind: '$prod' },
+        {
+          $group: {
+            _id: '$prod.Category',
+            totalQuantity: { $sum: '$quantity' },
+            totalValue: { $sum: { $multiply: ['$quantity', { $ifNull: ['$prod.MRP', '$prod.Price', 0] }] } },
+            productCount: { $sum: 1 },
+          },
+        },
+        { $sort: { totalQuantity: -1 } },
+      ]);
+
+      const categoriesWithTopProducts = await Promise.all(
+        categoryAgg.map(async (cat) => {
+          const topProductsAgg = await StoreInventory.aggregate([
+            { $match: { storeId: new mongoose.Types.ObjectId(targetStoreId) } },
+            {
+              $lookup: {
+                from: 'products',
+                localField: 'product',
+                foreignField: '_id',
+                as: 'prod'
+              }
+            },
+            { $unwind: '$prod' },
+            { $match: { 'prod.Category': cat._id } },
+            { $sort: { quantity: -1 } },
+            { $limit: 5 },
+            {
+              $project: {
+                name: '$prod.name',
+                quantity: '$quantity',
+                MRP: '$prod.MRP',
+                Price: '$prod.Price'
+              }
+            }
+          ]);
+          return {
+            category: cat._id,
+            totalQuantity: cat.totalQuantity,
+            totalValue: cat.totalValue,
+            productCount: cat.productCount,
+            topProducts: topProductsAgg,
+          };
+        })
+      );
+      return res.status(200).json({ success: true, categories: categoriesWithTopProducts });
+    }
   } catch (error) {
     res.status(500).json({ message: 'Error fetching category stock distribution', error: error.message });
   }
@@ -374,9 +441,16 @@ module.exports.getCategoryStockDistribution = async (req, res) => {
 module.exports.getStockAlerts = async (req, res) => {
   try {
     const userRole = req.user.role;
-    const userStoreId = req.user.storeId?._id || req.user.storeId;
+    const reqStoreId = req.query.storeId;
+    let targetStoreId = null;
 
     if (userRole === 'admin') {
+      targetStoreId = reqStoreId && reqStoreId !== 'all' ? reqStoreId : null;
+    } else {
+      targetStoreId = req.user.storeId?._id || req.user.storeId;
+    }
+
+    if (!targetStoreId && userRole === 'admin') {
       const products = await Product.find({})
         .select('name Category quantity MRP Price lowStockThreshold')
         .sort({ quantity: 1 });
@@ -386,35 +460,44 @@ module.exports.getStockAlerts = async (req, res) => {
 
       return res.status(200).json({ success: true, outOfStock, lowStock });
     } else {
-      // Staff / Manager — query from StoreInventory
-      const mongoose = require('mongoose');
-      const storeInventory = await StoreInventory.aggregate([
-        { $match: { storeId: new mongoose.Types.ObjectId(userStoreId) } },
-        {
-          $lookup: {
-            from: 'products',
-            localField: 'product',
-            foreignField: '_id',
-            as: 'productDetails',
-          },
-        },
-        { $unwind: { path: '$productDetails', preserveNullAndEmptyArrays: true } },
-        {
-          $project: {
-            _id: '$productDetails._id',
-            name: '$productDetails.name',
-            Category: '$productDetails.Category',
-            quantity: '$quantity',
-            MRP: '$productDetails.MRP',
-            Price: '$productDetails.Price',
-            lowStockThreshold: '$productDetails.lowStockThreshold',
-          },
-        },
-        { $sort: { quantity: 1 } },
-      ]);
+      if (!targetStoreId) {
+        return res.status(200).json({ success: true, outOfStock: [], lowStock: [] });
+      }
 
-      const outOfStock = storeInventory.filter(p => p.quantity === 0);
-      const lowStock   = storeInventory.filter(p => p.quantity > 0 && p.quantity <= (p.lowStockThreshold || 10));
+      // Staff / Manager or filtered by store — compare against global catalog
+      const allProducts = await Product.find({})
+        .select('name Category MRP Price lowStockThreshold')
+        .sort({ name: 1 })
+        .lean();
+      
+      const storeInventory = await StoreInventory.find({ storeId: targetStoreId }).lean();
+      
+      const inventoryMap = {};
+      storeInventory.forEach(inv => {
+        inventoryMap[inv.product.toString()] = inv.quantity;
+      });
+
+      const outOfStock = [];
+      const lowStock = [];
+
+      allProducts.forEach(p => {
+        const qty = inventoryMap[p._id.toString()] || 0;
+        const pDetails = {
+          _id: p._id,
+          name: p.name,
+          Category: p.Category,
+          quantity: qty,
+          MRP: p.MRP,
+          Price: p.Price,
+          lowStockThreshold: p.lowStockThreshold
+        };
+
+        if (qty === 0) {
+          outOfStock.push(pDetails);
+        } else if (qty > 0 && qty <= (p.lowStockThreshold || 10)) {
+          lowStock.push(pDetails);
+        }
+      });
 
       return res.status(200).json({ success: true, outOfStock, lowStock });
     }

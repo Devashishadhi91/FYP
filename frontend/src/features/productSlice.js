@@ -16,9 +16,10 @@ const initialState = {
   isStatsLoading: false
 }
 
-export const Addproduct = createAsyncThunk('product/addproduct', async (product, { rejectWithValue }) => {
+export const Addproduct = createAsyncThunk('product/addproduct', async (product, { dispatch, rejectWithValue }) => {
   try {
     const response = await axiosInstance.post("product/addproduct", product, { withCredentials: true, })
+    dispatch(gettingallproducts());
     return response.data;
   } catch (error) {
     return rejectWithValue(error.response?.data?.message || "Product adding failed");
@@ -121,7 +122,7 @@ const productSlice = createSlice({
         state.getallproduct = state.getallproduct.filter(product => product._id !== action.meta.arg);
       })
       .addCase(Addproduct.fulfilled, (state, action) => {
-        state.getallproduct.push(action.payload);
+        // Data is refreshed via dispatch(gettingallproducts()) in the thunk
       })
       .addCase(Searchproduct.fulfilled, (state, action) => {
         state.searchdata = action.payload;

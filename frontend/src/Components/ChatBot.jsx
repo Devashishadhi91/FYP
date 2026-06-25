@@ -91,7 +91,6 @@ const ChatBot = ({ hideHeader = false }) => {
               </div>
               Inventory Assistant
             </h1>
-            <p className="text-blue-100 text-sm mt-1">Powered by Groq</p>
           </div>
         </div>
       )}
@@ -101,7 +100,6 @@ const ChatBot = ({ hideHeader = false }) => {
         {messages.length === 0 && (
           <div className="h-full flex items-center justify-center">
             <div className="text-center">
-              <div className="text-6xl mb-4">🤖</div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome to your AI assistant</h2>
               <p className="text-gray-600">
                 Start a conversation below. Your messages and history are kept in memory.

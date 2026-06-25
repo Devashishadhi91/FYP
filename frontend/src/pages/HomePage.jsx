@@ -40,7 +40,7 @@ function HomePage() {
           <div className='grid grid-cols-3 gap-5'>
             <div className='bg-indigo-600 rounded-lg border border-indigo-700 w-56 justify-center hover:shadow-xl items-center flex flex-col h-56 transition-all duration-300'>
               <h1 className='text-indigo-50 text-xl font-medium'>Customer satisfaction</h1>
-              <p className='text-white text-3xl font-bold'>70%</p>
+              <p className='text-white text-3xl font-bold'>100%</p>
             </div>
             <div className='bg-blue-600 rounded-lg border border-blue-700 w-56 justify-center hover:shadow-xl items-center flex flex-col h-56 transition-all duration-300'>
               <h1 className='text-blue-50 text-xl font-medium'>Management efficiency</h1>
