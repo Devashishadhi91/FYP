@@ -45,6 +45,7 @@ function Purchases() {
   };
 const [query, setquery] = useState("");
   const [supplier, setsupplier] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
   const [items, setItems] = useState([{ category: "", subCategory: "", product: "", quantity: 1 }]);
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -104,6 +105,7 @@ const [query, setquery] = useState("");
 
   const resetForm = () => {
     setsupplier("");
+    setExpiryDate("");
     setItems([{ category: "", subCategory: "", product: "", quantity: 1 }]);
   };
 
@@ -125,7 +127,8 @@ const [query, setquery] = useState("");
           product: item.product,
           type: "Stock-in",
           quantity: item.quantity,
-          supplier
+          supplier,
+          expiryDate: expiryDate || null
         })).unwrap();
       }
       toast.success(`${items.length} purchase${items.length > 1 ? 's' : ''} added successfully!`);
@@ -154,8 +157,8 @@ const [query, setquery] = useState("");
 
 
 <Purchasesgraph className="mt-10"/>
-<div className="mt-12 px-6">
-        <div className="flex items-center space-x-4 mb-10">
+<div className="mt-4 md:mt-12 px-4 md:px-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-10">
           <input
             type="text"
             value={query}
@@ -178,7 +181,7 @@ const [query, setquery] = useState("");
 
 
         {isFormVisible && (
-          <div className="fixed top-0 right-0 w-[500px] h-full bg-white z-50 p-6 border-l-2 border-gray-300 shadow-2xl overflow-y-auto">
+          <div className="fixed top-0 right-0 w-full sm:w-[500px] h-full bg-white z-50 p-6 border-l-2 border-gray-300 shadow-2xl overflow-y-auto">
             <div className="text-right">
               <MdKeyboardDoubleArrowLeft
                 onClick={() => setIsFormVisible(false)}
@@ -220,6 +223,24 @@ const [query, setquery] = useState("");
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* ── Expiry Date ── */}
+              <div className="mb-6">
+                <label className="block text-sm font-bold text-gray-700 mb-1">
+                  Expiry Date <span className="text-gray-400 font-normal text-xs">(optional)</span>
+                </label>
+                <input
+                  type="date"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full h-10 px-3 border-2 rounded-lg outline-none focus:border-blue-500 bg-white text-gray-700"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Leave blank if the product does not have an expiry date.
+                  You will be notified when it is 6 months from expiry.
+                </p>
               </div>
 
               {/* ── Items ── */}
@@ -353,26 +374,58 @@ const [query, setquery] = useState("");
                 <th className="px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-center">Type</th>
                 <th className="px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-center">Quantity</th>
                 <th className="px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-left">Supplier</th>
+                <th className="px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-left">Expiry Date</th>
+                <th className="px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-                {currentItems.map((Stocks, index) => (
-                  <tr key={Stocks._id ? `${Stocks._id}-${index}` : index} className="hover:bg-gray-50/50 transition-colors duration-150">
-                    <td className="px-3 py-2.5 text-center text-xs font-semibold text-gray-600">{indexOfFirstItem + index + 1}</td>
-                    <td className="px-3 py-2.5 text-[11px] text-gray-500 font-medium">
-                      <FormattedTime timestamp={Stocks.transactionDate} />
-                    </td>
-                    <td className="px-3 py-2.5 font-bold text-gray-800 text-xs">{Stocks.product?.name || "Unknown"}</td>
-                    <td className="px-3 py-2.5 text-center">
-                      <span className="px-2 py-0.5 rounded border inline-flex text-[10px] font-bold uppercase tracking-widest bg-green-50 text-green-700 border-green-200">
-                        Purchase
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 text-center text-xs font-black text-gray-700">{Stocks.quantityChanged || Stocks.quantity}</td>
-                    <td className="px-3 py-2.5 text-xs text-gray-600 font-medium">{Stocks.supplier?.name || "N/A"}</td>
-                  </tr>
-                ))
-              }
+                {currentItems.map((Stocks, index) => {
+                  const expiry = Stocks.expiryDate ? new Date(Stocks.expiryDate) : null;
+                  const now = new Date();
+                  const sixMonthsAhead = new Date(); sixMonthsAhead.setMonth(sixMonthsAhead.getMonth() + 6);
+                  const isExpired = expiry && expiry < now;
+                  const isExpiringSoon = expiry && !isExpired && expiry <= sixMonthsAhead;
+                  const rowClass = isExpired
+                    ? 'bg-red-50'
+                    : isExpiringSoon
+                    ? 'bg-amber-50'
+                    : '';
+                  return (
+                    <tr key={Stocks._id ? `${Stocks._id}-${index}` : index} className={`hover:bg-gray-50/50 transition-colors duration-150 ${rowClass}`}>
+                      <td className="px-3 py-2.5 text-center text-xs font-semibold text-gray-600">{indexOfFirstItem + index + 1}</td>
+                      <td className="px-3 py-2.5 text-[11px] text-gray-500 font-medium">
+                        <FormattedTime timestamp={Stocks.transactionDate} />
+                      </td>
+                      <td className="px-3 py-2.5 font-bold text-gray-800 text-xs">{Stocks.product?.name || "Unknown"}</td>
+                      <td className="px-3 py-2.5 text-center">
+                        <span className="px-2 py-0.5 rounded border inline-flex text-[10px] font-bold uppercase tracking-widest bg-green-50 text-green-700 border-green-200">
+                          Purchase
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-center text-xs font-black text-gray-700">{Stocks.quantityChanged || Stocks.quantity}</td>
+                      <td className="px-3 py-2.5 text-xs text-gray-600 font-medium">{Stocks.supplier?.name || "N/A"}</td>
+                      <td className="px-3 py-2.5 text-xs font-medium">
+                        {expiry ? (
+                          <span className={isExpired ? 'text-red-600 font-bold' : isExpiringSoon ? 'text-amber-600 font-semibold' : 'text-gray-600'}>
+                            {expiry.toLocaleDateString('en-GB')}
+                            {isExpired && <span className="ml-1 text-red-500">(Expired)</span>}
+                            {isExpiringSoon && <span className="ml-1 text-amber-500">(Expiring Soon)</span>}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        {(() => {
+                          const s = Stocks.status;
+                          if (s === 'delivered') return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-100 text-green-700">Delivered</span>;
+                          if (s === 'cancelled') return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-600">Cancelled</span>;
+                          return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700">Pending</span>;
+                        })()}
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>

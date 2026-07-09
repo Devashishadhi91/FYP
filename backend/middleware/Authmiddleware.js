@@ -98,3 +98,30 @@ module.exports.staffStoreGuard = async (req, res, next) => {
   }
   next();
 };
+
+module.exports.distributorMiddleware = async (req, res, next) => {
+  const user = req.user;
+  try {
+    if (!user) return res.status(403).json({ message: "Access denied." });
+    if (user.role !== 'distributor') {
+      return res.status(403).json({ message: "Access denied. Distributor role required." });
+    }
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: "Unauthorized: Invalid or expired token." });
+  }
+};
+
+module.exports.adminOrManagerOrDistributor = async (req, res, next) => {
+  const user = req.user;
+  try {
+    if (!user) return res.status(403).json({ message: "Access denied." });
+    const allowed = ['admin', 'manager', 'distributor'];
+    if (!allowed.includes(user.role)) {
+      return res.status(403).json({ message: "Access denied." });
+    }
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: "Unauthorized: Invalid or expired token." });
+  }
+};

@@ -21,9 +21,13 @@ const UserSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['admin', 'manager', 'staff'],
+        enum: ['admin', 'manager', 'staff', 'distributor'],
         default: 'staff',
-
+    },
+    distributorId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
     },
     ProfilePic: {
         type: String

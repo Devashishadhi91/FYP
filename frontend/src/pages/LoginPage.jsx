@@ -54,8 +54,8 @@ function LoginPage() {
   }, [Authuser]);
 
   return (
-    <div className="min-h-screen bg-base-100 flex bg-gray-50 min-h-screen">
-      <div className="w-full sm:w-1/2 p-6 flex items-center justify-center bg-white shadow-lg rounded-xl">
+    <div className="min-h-screen bg-gray-50 flex">
+      <div className="w-full sm:w-1/2 p-6 flex items-center justify-center bg-white shadow-lg sm:rounded-xl">
         <div className="max-w-md w-full">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900">Inventory Management System</h1>
@@ -104,7 +104,7 @@ function LoginPage() {
         </div>
       </div>
 
-      <div className="w-full sm:w-1/2 p-10  bg-black text-white flex flex-col justify-center rounded-r-xl">
+      <div className="hidden sm:flex w-1/2 p-10 bg-black text-white flex-col justify-center rounded-r-xl">
         <h2 className="font-bold mb-4 text-4xl">Efficient Inventory Management</h2>
         <p className="mb-6 text-lg font-medium text-gray-300">Streamline your operations with real-time tracking, automated reports, and seamless integrations.</p>
 

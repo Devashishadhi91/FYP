@@ -1,10 +1,11 @@
 const Purchases = require('../models/Purchasesmodel');
 const Product = require('../models/Productmodel');
 const StoreInventory = require('../models/StoreInventorymodel');
+const { createActivityBroadcast } = require('./notificationcontroller');
 
 module.exports.createPurchases = async (req, res) => {
   try {
-    const { product, type, quantity, supplier } = req.body;
+    const { product, type, quantity, supplier, expiryDate } = req.body;
 
     if (!product || !type || !quantity) {
       return res.status(400).json({ success: false, message: "Product, type, and quantity are required." });
@@ -103,9 +104,20 @@ module.exports.createPurchases = async (req, res) => {
           newQuantity: prod.quantity,
           supplier: supplier || undefined,
           userId: req.user._id,
+          expiryDate: expiryDate || null,
+          purchasedAt: new Date()
         });
 
         await newTransaction.save();
+
+        const io = req.app.get('io');
+        await createActivityBroadcast(io, {
+          actorUser: req.user,
+          title: 'Warehouse Purchase Logged',
+          message: `${req.user.name} added ${quantityNum} units of "${prod.name}" to the warehouse.`,
+          storeId: null
+        });
+
         return res.status(201).json({
           message: "Warehouse stock updated.",
           newTransaction
@@ -139,9 +151,20 @@ module.exports.createPurchases = async (req, res) => {
           supplier: supplier || undefined,
           storeId: targetStoreId,
           userId: req.user._id,
+          expiryDate: expiryDate || null,
+          purchasedAt: new Date()
         });
 
         await newTransaction.save();
+
+        const io = req.app.get('io');
+        await createActivityBroadcast(io, {
+          actorUser: req.user,
+          title: 'Stock Purchase Recorded',
+          message: `${req.user.name} logged a purchase of ${quantityNum} units of "${prod.name}" for a store.`,
+          storeId: targetStoreId
+        });
+
         return res.status(201).json({
           message: "Purchase recorded. Store stock updated.",
           newTransaction,

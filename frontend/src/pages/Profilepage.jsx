@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import TopNavbar from "../Components/TopNavbar";
-import { IoCameraOutline, IoLockClosedOutline } from "react-icons/io5";
+import { IoCameraOutline, IoLockClosedOutline, IoPersonOutline } from "react-icons/io5";
 import { FiMapPin } from "react-icons/fi";
 import image from "../images/user.png";
 import { updateProfile } from "../features/authSlice";
@@ -21,6 +21,18 @@ function ProfilePage() {
     confirmPassword: ""
   });
 
+  const [profileForm, setProfileForm] = useState({
+    name: Authuser?.name || "",
+    email: Authuser?.email || ""
+  });
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+
+  useEffect(() => {
+    if (Authuser) {
+      setProfileForm({ name: Authuser.name, email: Authuser.email });
+    }
+  }, [Authuser]);
+
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) {
@@ -34,13 +46,24 @@ function ProfilePage() {
     reader.onload = async () => {
       const base64Image = reader.result;
       try {
-        const response = await dispatch(updateProfile(base64Image)).unwrap();
+        const response = await dispatch(updateProfile({ ProfilePic: base64Image })).unwrap();
         toast.success("Profile updated successfully");
-        setImage(response?.updatedUser?.ProfilePic); 
+        setImage(response?.ProfilePic); 
       } catch (error) {
         toast.error(error || "Failed to upload image.");
       }
     };
+  };
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    try {
+      await dispatch(updateProfile(profileForm)).unwrap();
+      toast.success("Profile details updated successfully");
+      setIsEditingProfile(false);
+    } catch (error) {
+      toast.error(error || "Failed to update profile details");
+    }
   };
 
   const handlePasswordChange = async (e) => {
@@ -69,7 +92,7 @@ function ProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <TopNavbar />
-      <div className="container mx-auto px-6 py-12">
+      <div className="container mx-auto px-4 md:px-6 py-6 md:py-12">
         <h1 className="text-3xl font-black text-gray-800 mb-8">My Profile</h1>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -97,14 +120,62 @@ function ProfilePage() {
                 </label>
               </div>
 
-              <h2 className="text-xl font-bold text-gray-800">{Authuser?.name || "Guest"}</h2>
-              <p className="text-blue-600 font-bold text-xs uppercase tracking-widest mt-1">{Authuser?.role || "Staff"}</p>
+              {!isEditingProfile ? (
+                <>
+                  <h2 className="text-xl font-bold text-gray-800">{Authuser?.name || "Guest"}</h2>
+                  <p className="text-blue-600 font-bold text-xs uppercase tracking-widest mt-1">{Authuser?.role || "Staff"}</p>
+                  
+                  <div className="mt-8 space-y-4 text-left border-t pt-6">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <label className="text-[10px] font-black text-gray-400 uppercase">Email Address</label>
+                        <p className="text-gray-700 font-medium">{Authuser?.email || "N/A"}</p>
+                      </div>
+                      {Authuser?.role === 'admin' && (
+                        <button 
+                          onClick={() => setIsEditingProfile(true)}
+                          className="text-xs text-blue-600 font-bold hover:underline"
+                        >
+                          Edit Profile
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <form onSubmit={handleProfileUpdate} className="mt-4 space-y-4 text-left">
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase">Full Name</label>
+                    <input 
+                      type="text"
+                      required
+                      value={profileForm.name}
+                      onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
+                      className="w-full h-9 px-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase">Email Address</label>
+                    <input 
+                      type="email"
+                      required
+                      value={profileForm.email}
+                      onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
+                      className="w-full h-9 px-3 bg-gray-50 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition text-sm"
+                    />
+                  </div>
+                  <div className="flex space-x-2 pt-2">
+                    <button type="submit" className="flex-1 bg-blue-600 text-white text-xs font-bold py-2 rounded-lg hover:bg-blue-700 transition">
+                      Save
+                    </button>
+                    <button type="button" onClick={() => setIsEditingProfile(false)} className="flex-1 bg-gray-100 text-gray-600 text-xs font-bold py-2 rounded-lg hover:bg-gray-200 transition">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
               
-              <div className="mt-8 space-y-4 text-left border-t pt-6">
-                <div>
-                  <label className="text-[10px] font-black text-gray-400 uppercase">Email Address</label>
-                  <p className="text-gray-700 font-medium">{Authuser?.email || "N/A"}</p>
-                </div>
+              <div className="mt-4 space-y-4 text-left">
                 
                 {Authuser?.storeId && typeof Authuser.storeId === 'object' && (
                   <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
@@ -172,7 +243,7 @@ function ProfilePage() {
           </div>
 
           {/* Right Column: Activity Logs */}
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col h-[750px]">
+          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-[400px] lg:h-[750px]">
             <div className="p-8 border-b">
               <h3 className="text-lg font-bold text-gray-800">Recent Account Activity</h3>
               <p className="text-sm text-gray-500 font-medium">Log of your latest actions and security events</p>

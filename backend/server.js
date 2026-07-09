@@ -23,6 +23,8 @@ const reportrouter = require('./Routers/reportRouter');
 const invoicerouter = require('./Routers/invoiceRouter');
 const storerouter = require('./Routers/storeRouter');
 const chatbotRouter = require('./Routers/chatbotRouter');
+const attendancerouter = require('./Routers/attendanceRouter');
+const schedulerouter = require('./Routers/scheduleRouter');
 
 const PORT = process.env.PORT || 3003;
 const app = express();
@@ -103,10 +105,24 @@ app.use('/api/reports', reportrouter);
 app.use('/api/invoice', invoicerouter);
 app.use('/api/store', storerouter);
 app.use('/api/chatbot', chatbotRouter);
+app.use('/api/attendance', attendancerouter);
+app.use('/api/schedule', schedulerouter);
 
 server.listen(PORT, () => {
   MongoDBconfig();
   console.log(`The server is running at port ${PORT}`);
+
+  // Periodic checks: aging stock and expiry warnings every 6 hours
+  const { checkAgingStock, checkExpiryWarnings } = require('./controller/notificationcontroller');
+  const RUN_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
+  setTimeout(() => {
+    checkAgingStock(io);
+    checkExpiryWarnings(io);
+    setInterval(() => {
+      checkAgingStock(io);
+      checkExpiryWarnings(io);
+    }, RUN_INTERVAL);
+  }, 10000); // wait 10 seconds after startup before first run
 });
 
 app.use((err, req, res, next) => {

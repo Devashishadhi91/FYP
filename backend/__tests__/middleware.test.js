@@ -31,13 +31,15 @@ describe('Middleware Tests', () => {
       expect(res.json).toHaveBeenCalledWith({ message: "Unauthorized: Invalid or expired token." });
     });
 
-    // Mock User.findById for MW-03 and MW-04
     it('MW-03: valid token, user exists', async () => {
       const token = jwt.sign({ userId: '123' }, process.env.SecretKey);
       req.cookies.Inventorymanagmentsystem = token;
       
       const User = require('../models/Usermodel');
-      jest.spyOn(User, 'findById').mockResolvedValue({ _id: '123', role: 'admin' });
+      // Middleware chains: User.findById().select().populate() — mock the full chain
+      const mockPopulate = jest.fn().mockResolvedValue({ _id: '123', role: 'admin' });
+      const mockSelect = jest.fn().mockReturnValue({ populate: mockPopulate });
+      jest.spyOn(User, 'findById').mockReturnValue({ select: mockSelect });
       
       await authmiddleware(req, res, next);
       expect(next).toHaveBeenCalled();
@@ -49,7 +51,10 @@ describe('Middleware Tests', () => {
       req.cookies.Inventorymanagmentsystem = token;
       
       const User = require('../models/Usermodel');
-      jest.spyOn(User, 'findById').mockResolvedValue(null);
+      // Simulate user not found — chain resolves to null
+      const mockPopulate = jest.fn().mockResolvedValue(null);
+      const mockSelect = jest.fn().mockReturnValue({ populate: mockPopulate });
+      jest.spyOn(User, 'findById').mockReturnValue({ select: mockSelect });
       
       await authmiddleware(req, res, next);
       expect(res.status).toHaveBeenCalledWith(401);
@@ -122,7 +127,7 @@ describe('Middleware Tests', () => {
       req.user = { role: 'staff', storeId: null, isRounding: false };
       staffStoreGuard(req, res, next);
       expect(res.status).toHaveBeenCalledWith(403);
-      expect(res.json).toHaveBeenCalledWith({ message: "Access denied. Your account is not assigned to any store." });
+      expect(res.json).toHaveBeenCalledWith({ message: "Access denied. Your account is not assigned to any store. Contact your admin." });
     });
 
     it('MW-15: staffStoreGuard - staff with storeId', () => {

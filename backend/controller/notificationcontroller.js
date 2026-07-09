@@ -2,7 +2,149 @@ const Notification = require("../models/Notificationmodel");
 const Product = require("../models/Productmodel");
 const StoreInventory = require("../models/StoreInventorymodel");
 const User = require("../models/Usermodel");
+const StockTransaction = require("../models/Purchasesmodel");
+const Sale = require("../models/Salesmodel");
 const { sendEmailNotification } = require("../libs/emailService");
+
+// Shared helper — creates an in-app notification targeted at a specific user
+// and also emits a socket event. Used for activity broadcasts.
+const createUserNotification = async (io, { title, message, type, userId, productId }) => {
+  const note = new Notification({ title, message, type, userId: userId || null, productId: productId || null });
+  await note.save();
+  if (io) io.emit('newNotification', note);
+  return note;
+};
+
+// Broadcasts a staff action to the actor themselves, plus all admins and store managers
+module.exports.createActivityBroadcast = async (io, { actorUser, title, message, storeId }) => {
+  try {
+    // Notify the actor
+    await createUserNotification(io, { title, message, type: 'staff_activity', userId: actorUser._id });
+
+    // Notify all admins and store managers
+    const recipients = await User.find({
+      role: { $in: ['admin', 'manager'] }
+    }).select('_id email name');
+
+    for (const r of recipients) {
+      await createUserNotification(io, { title, message, type: 'staff_activity', userId: r._id });
+    }
+
+    // Send email to admins/managers
+    const emails = recipients.map(u => u.email).filter(Boolean).join(',');
+    if (emails) {
+      sendEmailNotification(emails, title, `<p>${message}</p>`);
+    }
+  } catch (err) {
+    console.error('Error in createActivityBroadcast:', err);
+  }
+};
+
+// Checks for purchases where the product has not been sold for more than 90 days
+module.exports.checkAgingStock = async (io = null) => {
+  try {
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    // Find all stock-in transactions older than 90 days
+    const oldPurchases = await StockTransaction.find({
+      type: { $in: ['Stock-in', 'purchase'] },
+      purchasedAt: { $lte: ninetyDaysAgo }
+    }).populate('product');
+
+    for (const purchase of oldPurchases) {
+      if (!purchase.product) continue;
+
+      // Check if there is any sale of this product after the purchase date
+      const recentSale = await Sale.findOne({
+        'products.product': purchase.product._id,
+        createdAt: { $gt: purchase.purchasedAt }
+      });
+
+      if (recentSale) continue; // Product has sold since this purchase — skip
+
+      // Check if an unread alert already exists for this purchase
+      const alreadyAlerted = await Notification.findOne({
+        type: 'aging_stock',
+        productId: purchase.product._id,
+        isRead: false
+      });
+      if (alreadyAlerted) continue;
+
+      const msg = `Product "${purchase.product.name}" has not been sold since ${new Date(purchase.purchasedAt).toDateString()} (over 90 days). Consider running a promotion or stock clearance.`;
+      const note = new Notification({
+        title: 'Aging Stock Alert',
+        message: msg,
+        type: 'aging_stock',
+        productId: purchase.product._id
+      });
+      await note.save();
+      if (io) io.emit('newNotification', note);
+
+      // Email admins and managers
+      const admins = await User.find({ role: { $in: ['admin', 'manager'] } });
+      const emails = admins.map(u => u.email).filter(Boolean).join(',');
+      if (emails) {
+        sendEmailNotification(emails, `Aging Stock: ${purchase.product.name}`, `<p>${msg}</p>`);
+      }
+    }
+  } catch (err) {
+    console.error('Error in checkAgingStock:', err);
+  }
+};
+
+// Checks for purchases where expiryDate is within the next 6 months
+module.exports.checkExpiryWarnings = async (io = null) => {
+  try {
+    const now = new Date();
+    const sixMonthsFromNow = new Date();
+    sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6);
+
+    const expiringPurchases = await StockTransaction.find({
+      expiryDate: { $gte: now, $lte: sixMonthsFromNow }
+    }).populate('product').populate('storeId', 'name').populate('userId');
+
+    for (const purchase of expiringPurchases) {
+      if (!purchase.product) continue;
+
+      const alreadyAlerted = await Notification.findOne({
+        type: 'expiry_warning',
+        productId: purchase.product._id,
+        isRead: false,
+        message: { $regex: purchase._id.toString() }
+      });
+      if (alreadyAlerted) continue;
+
+      const expiryStr = new Date(purchase.expiryDate).toDateString();
+      const storeName = purchase.storeId?.name || 'Warehouse';
+      const msg = `Product "${purchase.product.name}" in ${storeName} is expiring on ${expiryStr}. Take action to clear this stock and avoid losses (Purchase ID: ${purchase._id}).`;
+
+      // Notify admin and managers
+      const admins = await User.find({ role: { $in: ['admin', 'manager'] } });
+      for (const admin of admins) {
+        const note = new Notification({ title: 'Expiry Warning', message: msg, type: 'expiry_warning', productId: purchase.product._id, userId: admin._id });
+        await note.save();
+        if (io) io.emit('newNotification', note);
+      }
+
+      // Also notify the staff member who made the purchase, if applicable
+      if (purchase.userId) {
+        const staffNote = new Notification({ title: 'Expiry Warning', message: msg, type: 'expiry_warning', productId: purchase.product._id, userId: purchase.userId._id });
+        await staffNote.save();
+        if (io) io.emit('newNotification', staffNote);
+      }
+
+      // Email notification
+      const allUsers = [...admins, purchase.userId].filter(Boolean);
+      const emails = [...new Set(allUsers.map(u => u.email).filter(Boolean))].join(',');
+      if (emails) {
+        sendEmailNotification(emails, `Expiry Warning: ${purchase.product.name}`, `<p>${msg}</p>`);
+      }
+    }
+  } catch (err) {
+    console.error('Error in checkExpiryWarnings:', err);
+  }
+};
 
 module.exports.createNotification = async (req, res) => {
   try {

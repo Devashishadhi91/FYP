@@ -26,6 +26,11 @@ import ChatBotPage from "./pages/ChatBotPage";
 import ChatBotBubble from "./Components/ChatBotBubble";
 import ProtectedRoute from "./lib/ProtectedRoute";
 import toast, { Toaster } from "react-hot-toast";
+import AttendancePage from "./pages/AttendancePage";
+import RoundingAttendancePage from "./pages/RoundingAttendancePage";
+import ScheduleManagementPage from "./pages/ScheduleManagementPage";
+import DistributorDashboard from "./pages/DistributorDashboard";
+import DistributorTeamPage from "./pages/DistributorTeamPage";
 
 function App() {
   return (
@@ -57,6 +62,8 @@ function App() {
             <Route path="users" element={<ProtectedRoute element={<Userstatus />} allowedRoles={["admin", "manager"]} />} />
             <Route path="activity-log" element={<ProtectedRoute element={<Activitylogpage />} allowedRoles={["admin", "manager"]} />} />
             <Route path="reports" element={<ProtectedRoute element={<Reportpage />} allowedRoles={["admin", "manager"]} />} />
+            <Route path="schedules" element={<ProtectedRoute element={<ScheduleManagementPage />} allowedRoles={["manager"]} />} />
+            <Route path="attendance-report" element={<ProtectedRoute element={<AttendancePage />} allowedRoles={["manager"]} />} />
           </Route>
 
           {/* ── ADMIN DASHBOARD ── */}
@@ -77,6 +84,8 @@ function App() {
             <Route path="stores" element={<ProtectedRoute element={<StoreManagementPage />} allowedRoles={["admin"]} />} />
             <Route path="activity-log" element={<ProtectedRoute element={<Activitylogpage />} allowedRoles={["admin", "manager"]} />} />
             <Route path="reports" element={<ProtectedRoute element={<Reportpage />} allowedRoles={["admin", "manager"]} />} />
+            <Route path="schedules" element={<ProtectedRoute element={<ScheduleManagementPage />} allowedRoles={["admin"]} />} />
+            <Route path="attendance-report" element={<ProtectedRoute element={<AttendancePage />} allowedRoles={["admin"]} />} />
           </Route>
 
           {/* ── STAFF DASHBOARD ── */}
@@ -91,6 +100,18 @@ function App() {
             <Route path="stock-transaction" element={<ProtectedRoute element={<Purchases />} />} />
             <Route path="category" element={<ProtectedRoute element={<Categorypage />} />} />
             <Route path="NotificationPageRead" element={<ProtectedRoute element={<NotificationPageRead />} />} />
+            <Route path="profile" element={<ProtectedRoute element={<Profilepage />} />} />
+            <Route path="attendance" element={<ProtectedRoute element={<AttendancePage />} allowedRoles={["staff"]} />} />
+            <Route path="rounding-schedule" element={<ProtectedRoute element={<RoundingAttendancePage />} allowedRoles={["staff"]} />} />
+          </Route>
+
+          {/* ── DISTRIBUTOR DASHBOARD ── */}
+          <Route
+            path="/DistributorDashboard"
+            element={<ProtectedRoute element={<DistributorDashboard />} allowedRoles={["distributor"]} />}
+          >
+            <Route index element={<ProtectedRoute element={<DistributorTeamPage />} />} />
+            <Route path="team" element={<ProtectedRoute element={<DistributorTeamPage />} />} />
             <Route path="profile" element={<ProtectedRoute element={<Profilepage />} />} />
           </Route>
         </Routes>

@@ -61,7 +61,7 @@ module.exports.signup = async (req, res) => {
 
 module.exports.adminCreateUser = async (req, res) => {
   try {
-    const { name, email, password, role, storeId, isRounding } = req.body;
+    const { name, email, password, role, storeId, isRounding, distributorId } = req.body;
 
     const duplicatedUser = await User.findOne({ email });
     if (duplicatedUser) {
@@ -76,8 +76,9 @@ module.exports.adminCreateUser = async (req, res) => {
       password: hashedpassword,
       ProfilePic: "",
       role: role || "staff",
-      storeId: isRounding ? null : (storeId || null),
+      storeId: (isRounding || role === 'distributor') ? null : (storeId || null),
       isRounding: isRounding ? true : false,
+      distributorId: distributorId || null
     });
 
     const savedUser = await newUser.save();
@@ -209,12 +210,16 @@ module.exports.changePassword = async (req, res) => {
 
 module.exports.updateProfile = async (req, res) => {
   try {
-    const { ProfilePic } = req.body;
+    const { ProfilePic, name, email } = req.body;
     const userId = req.user?._id;
 
     if (!userId) {
       return res.status(400).json({ message: "User not authenticated" });
     }
+
+    let updateFields = {};
+    if (name) updateFields.name = name;
+    if (email) updateFields.email = email;
 
     if (ProfilePic) {
       try {
@@ -222,32 +227,34 @@ module.exports.updateProfile = async (req, res) => {
           folder: "profile_inventory_system",
           upload_preset: "upload",
         });
-
-        const updatedUser = await User.findOneAndUpdate(
-          { _id: userId },
-          { ProfilePic: uploadResponse.secure_url },
-          { new: true }
-        );
-
-        if (!updatedUser) {
-          return res.status(404).json({ message: "User not found" });
-        }
-
-        return res.status(200).json({
-          message: "Profile updated successfully",
-          updatedUser
-        });
-
+        updateFields.ProfilePic = uploadResponse.secure_url;
       } catch (cloudinaryError) {
         logger.error("Cloudinary upload failed:", cloudinaryError);
         return res.status(500).json({ message: "Image upload failed", error: cloudinaryError.message });
       }
-    } else {
-      return res.status(400).json({ message: "No profile picture provided" });
     }
+
+    if (Object.keys(updateFields).length === 0) {
+      return res.status(400).json({ message: "No fields to update provided" });
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: userId },
+      updateFields,
+      { new: true }
+    ).select("-password").populate("storeId", "name address");
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({
+      message: "Profile updated successfully",
+      updatedUser
+    });
   } catch (error) {
     logger.error("Error in update profile Controller", error.message);
-    res.status(500).json({ message: "Internal Server Error", error });
+    res.status(500).json({ message: "Internal Server error" });
   }
 };
 
@@ -406,5 +413,43 @@ module.exports.getUsersForRole = async (req, res) => {
   } catch (error) {
     logger.error("Error in getUsersForRole:", error.message);
     res.status(500).json({ message: "Internal Server Error", error: error.message });
+  }
+};
+
+// GET /api/auth/distributors — returns all distributor users
+module.exports.getDistributors = async (req, res) => {
+  try {
+    const distributors = await User.find({ role: 'distributor' }).select('-password');
+    res.status(200).json(distributors);
+  } catch (error) {
+    logger.error('Error in getDistributors:', error.message);
+    res.status(500).json({ message: 'Internal Server Error', error: error.message });
+  }
+};
+
+// GET /api/auth/distributor/:distributorId/staff — returns rounding staff under a distributor
+module.exports.getRoundingStaffForDistributor = async (req, res) => {
+  try {
+    const { distributorId } = req.params;
+    const staff = await User.find({ distributorId, isRounding: true })
+      .select('-password')
+      .populate('distributorId', 'name email');
+    res.status(200).json(staff);
+  } catch (error) {
+    logger.error('Error in getRoundingStaffForDistributor:', error.message);
+    res.status(500).json({ message: 'Internal Server Error', error: error.message });
+  }
+};
+
+// GET /api/auth/rounding-staff — returns all rounding staff
+module.exports.getAllRoundingStaff = async (req, res) => {
+  try {
+    const staff = await User.find({ isRounding: true })
+      .select('-password')
+      .populate('distributorId', 'name email');
+    res.status(200).json(staff);
+  } catch (error) {
+    logger.error('Error in getAllRoundingStaff:', error.message);
+    res.status(500).json({ message: 'Internal Server Error', error: error.message });
   }
 };

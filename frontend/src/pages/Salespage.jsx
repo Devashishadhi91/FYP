@@ -238,7 +238,7 @@ function Salespage() {
   return (
     <div className="bg-base-100 min-h-screen">
       <TopNavbar />
-      <div className="mt-12 px-6">
+      <div className="mt-4 md:mt-12 px-4 md:px-6">
         <SalesChart className=" mb-10" />
         {/* Store/Date Filter for Admin & Manager */}
         {isAdminOrManager && (
@@ -257,12 +257,12 @@ function Salespage() {
               </div>
               <div className="flex flex-col">
                 <label className="text-xs font-bold text-gray-500 uppercase mb-1">Start Date</label>
-                <input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)}
+                <input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} max={new Date().toISOString().split('T')[0]}
                   className="h-10 px-3 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
               </div>
               <div className="flex flex-col">
                 <label className="text-xs font-bold text-gray-500 uppercase mb-1">End Date</label>
-                <input type="date" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)}
+                <input type="date" value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} max={new Date().toISOString().split('T')[0]}
                   className="h-10 px-3 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
               </div>
               <button onClick={applyFilter}
@@ -301,7 +301,7 @@ function Salespage() {
         </div>
 
         {isFormVisible && (
-          <div className="fixed top-0 right-0 w-[500px] h-full bg-white z-50 p-6 border-l-2 border-gray-300 shadow-2xl overflow-y-auto">
+          <div className="fixed top-0 right-0 w-full sm:w-[500px] h-full bg-white z-50 p-6 border-l-2 border-gray-300 shadow-2xl overflow-y-auto">
             <div className="text-right">
               <MdKeyboardDoubleArrowLeft
                 onClick={() => setIsFormVisible(false)}

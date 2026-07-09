@@ -1,21 +1,9 @@
-import React, { useEffect } from 'react';
-import Sidebar from '../Components/Sidebar';
+import React from 'react';
 import { Outlet } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import socket from '../lib/socket';
+import Sidebar from '../Components/Sidebar';
+import ChatBotBubble from '../Components/ChatBotBubble';
 
-function AdminDashboard() {
-  const { Authuser } = useSelector((state) => state.auth);
-
-  useEffect(() => {
-    if (Authuser) {
-      socket.connect();
-    }
-    return () => {
-      socket.disconnect();
-    };
-  }, [Authuser]);
-
+function DistributorDashboard() {
   return (
     <div className="drawer lg:drawer-open h-screen bg-gray-100">
       <input id="sidebar-drawer" type="checkbox" className="drawer-toggle" />
@@ -26,8 +14,9 @@ function AdminDashboard() {
         <label htmlFor="sidebar-drawer" aria-label="close sidebar" className="drawer-overlay" />
         <Sidebar />
       </div>
+      <ChatBotBubble />
     </div>
   );
 }
 
-export default AdminDashboard;
+export default DistributorDashboard;

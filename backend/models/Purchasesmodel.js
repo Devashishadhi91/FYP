@@ -45,7 +45,9 @@ const StockTranscationSchema = new mongoose.Schema({
     ref: "Supplier"
   },
   orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null },
-  status: { type: String, enum: ['pending', 'delivered', 'cancelled'], default: 'pending' }
+  status: { type: String, enum: ['pending', 'delivered', 'cancelled'], default: 'delivered' },
+  expiryDate: { type: Date, default: null },
+  purchasedAt: { type: Date, default: Date.now }
 },
 { timestamps: true }
 );

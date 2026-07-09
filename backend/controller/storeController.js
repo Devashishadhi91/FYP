@@ -6,7 +6,7 @@ const logActivity = require('../libs/logger');
 // Create a new store (admin only)
 module.exports.createStore = async (req, res) => {
   try {
-    const { name, address, contactNumber } = req.body;
+    const { name, address, contactNumber, location } = req.body;
 
     if (!name || !address) {
       return res.status(400).json({ message: "Store name and address are required." });
@@ -17,7 +17,7 @@ module.exports.createStore = async (req, res) => {
       return res.status(409).json({ message: "A store with this name already exists." });
     }
 
-    const store = new Store({ name, address, contactNumber });
+    const store = new Store({ name, address, contactNumber, location: location || {} });
     await store.save();
 
     await logActivity({
@@ -71,11 +71,11 @@ module.exports.getStoreById = async (req, res) => {
 module.exports.updateStore = async (req, res) => {
   try {
     const { storeId } = req.params;
-    const { name, address, contactNumber } = req.body;
+    const { name, address, contactNumber, location } = req.body;
 
     const updatedStore = await Store.findByIdAndUpdate(
       storeId,
-      { name, address, contactNumber },
+      { name, address, contactNumber, ...(location ? { location } : {}) },
       { new: true }
     );
     if (!updatedStore) return res.status(404).json({ message: "Store not found" });

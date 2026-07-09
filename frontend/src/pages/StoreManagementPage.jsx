@@ -29,7 +29,7 @@ function StoreManagementPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingStore, setEditingStore] = useState(null);
   const [selectedStore, setSelectedStore] = useState(null); // store object for staff panel
-  const [formData, setFormData] = useState({ name: "", address: "", contactNumber: "" });
+  const [formData, setFormData] = useState({ name: "", address: "", contactNumber: "", location: { lat: "", lng: "" } });
   const [assignUserId, setAssignUserId] = useState("");
 
   useEffect(() => {
@@ -51,7 +51,7 @@ function StoreManagementPage() {
       await dispatch(createStore(formData)).unwrap();
       toast.success("Store created!");
       setShowCreateForm(false);
-      setFormData({ name: "", address: "", contactNumber: "" });
+      setFormData({ name: "", address: "", contactNumber: "", location: { lat: "", lng: "" } });
       dispatch(fetchAllStores());
     } catch (err) {
       toast.error(err || "Failed to create store");
@@ -64,7 +64,7 @@ function StoreManagementPage() {
       await dispatch(updateStore({ storeId: editingStore._id, data: formData })).unwrap();
       toast.success("Store updated!");
       setEditingStore(null);
-      setFormData({ name: "", address: "", contactNumber: "" });
+      setFormData({ name: "", address: "", contactNumber: "", location: { lat: "", lng: "" } });
       dispatch(fetchAllStores());
     } catch (err) {
       toast.error(err || "Failed to update store");
@@ -86,7 +86,15 @@ function StoreManagementPage() {
   const handleEditClick = (store) => {
     setEditingStore(store);
     setShowCreateForm(false);
-    setFormData({ name: store.name, address: store.address, contactNumber: store.contactNumber || "" });
+    setFormData({ 
+      name: store.name, 
+      address: store.address, 
+      contactNumber: store.contactNumber || "",
+      location: { 
+        lat: store.location?.lat || "", 
+        lng: store.location?.lng || "" 
+      }
+    });
   };
 
   const handleAssign = async (e) => {
@@ -148,7 +156,29 @@ function StoreManagementPage() {
           required
           onChange={(e) => setFormData({ ...formData, address: e.target.value })}
           className="w-full h-10 px-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-          placeholder="e.g. New Road, Kathmandu"
+          placeholder="e.g. 123 Main St, City"
+        />
+      </div>
+      <div>
+        <label className="text-sm font-semibold text-gray-600 block mb-1">Geofence Latitude</label>
+        <input
+          type="number"
+          step="any"
+          value={formData.location?.lat || ""}
+          onChange={(e) => setFormData({ ...formData, location: { ...formData.location, lat: e.target.value } })}
+          className="w-full h-10 px-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+          placeholder="e.g. 27.7172"
+        />
+      </div>
+      <div>
+        <label className="text-sm font-semibold text-gray-600 block mb-1">Geofence Longitude</label>
+        <input
+          type="number"
+          step="any"
+          value={formData.location?.lng || ""}
+          onChange={(e) => setFormData({ ...formData, location: { ...formData.location, lng: e.target.value } })}
+          className="w-full h-10 px-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+          placeholder="e.g. 85.3240"
         />
       </div>
     </div>
@@ -199,7 +229,7 @@ function StoreManagementPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setShowCreateForm(false); setFormData({ name: "", address: "", contactNumber: "" }); }}
+                        onClick={() => { setShowCreateForm(false); setFormData({ name: "", address: "", contactNumber: "", location: { lat: "", lng: "" } }); }}
                         className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-200 transition"
                       >
                         Cancel
@@ -221,7 +251,7 @@ function StoreManagementPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setEditingStore(null); setFormData({ name: "", address: "", contactNumber: "" }); }}
+                        onClick={() => { setEditingStore(null); setFormData({ name: "", address: "", contactNumber: "", location: { lat: "", lng: "" } }); }}
                         className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-200 transition"
                       >
                         Cancel

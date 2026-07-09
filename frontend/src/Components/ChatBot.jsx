@@ -1,10 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Trash2, AlertCircle, Loader } from 'lucide-react';
 import axiosInstance from '../lib/axios';
+import { useSelector } from 'react-redux';
+
+// localStorage key scoped per user so different users don't share history
+const getChatStorageKey = (userId) => `chatHistory_${userId}`;
 
 const ChatBot = ({ hideHeader = false }) => {
-  // State management for chat history, user input, loading status, and errors
-  const [messages, setMessages] = useState([]);
+  const { Authuser } = useSelector((state) => state.auth);
+  const storageKey = Authuser?._id ? getChatStorageKey(Authuser._id) : null;
+
+  // Load persisted messages from localStorage on first render
+  const [messages, setMessages] = useState(() => {
+    if (!storageKey) return [];
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -12,6 +28,17 @@ const ChatBot = ({ hideHeader = false }) => {
   // Refs for auto-scrolling to the latest message and keeping focus on the input box
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Persist messages to localStorage whenever they change
+  useEffect(() => {
+    if (storageKey) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(messages));
+      } catch {
+        // Ignore storage errors (e.g. private browsing quota exceeded)
+      }
+    }
+  }, [messages, storageKey]);
 
   // Auto-scrolls when new messages are added to the chat
   const scrollToBottom = () => {
@@ -74,6 +101,7 @@ const ChatBot = ({ hideHeader = false }) => {
     if (messages.length > 0 && window.confirm('Are you sure you want to clear the chat history?')) {
       setMessages([]);
       setError('');
+      if (storageKey) localStorage.removeItem(storageKey);
       inputRef.current?.focus();
     }
   };

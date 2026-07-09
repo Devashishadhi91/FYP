@@ -131,8 +131,8 @@ function Dashboardpage() {
   return (
     <div className="bg-gray-50 min-h-screen">
       <TopNavbar />
-      <div className="p-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="p-4 md:p-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
           <h1 className="text-3xl font-bold text-gray-800">Executive Overview</h1>
           {Authuser?.role === 'admin' ? (
             <div className="flex items-center space-x-3">
@@ -142,7 +142,7 @@ function Dashboardpage() {
                 onChange={(e) => setFilterStoreId(e.target.value)}
                 className="h-10 px-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm"
               >
-                <option value="all">All Stores</option>
+                <option value="all">Warehouse</option>
                 {stores?.map((s) => (
                   <option key={s._id} value={s._id}>{s.name}</option>
                 ))}
@@ -315,46 +315,48 @@ function Dashboardpage() {
                   <p className="text-xs text-gray-400">All inventory levels look healthy.</p>
                 </div>
               ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs font-bold text-gray-400 uppercase tracking-wider border-b">
-                      <th className="pb-3 pl-3">#</th>
-                      <th className="pb-3">Product Name</th>
-                      <th className="pb-3">Category</th>
-                      <th className="pb-3 text-center">Qty</th>
-                      <th className="pb-3 text-right pr-3">MRP</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {modalProducts.map((product, idx) => (
-                      <tr
-                        key={product._id || idx}
-                        className="border-b border-gray-50 hover:bg-gray-50/80 transition"
-                      >
-                        <td className="py-3 pl-3 text-gray-400 font-semibold">{idx + 1}</td>
-                        <td className="py-3 font-semibold text-gray-800 max-w-[200px] truncate" title={product.name}>
-                          {product.name}
-                        </td>
-                        <td className="py-3">
-                          <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
-                            {product.Category || '—'}
-                          </span>
-                        </td>
-                        <td className="py-3 text-center">
-                          <span className={`inline-block min-w-[36px] text-center text-xs font-bold px-2 py-1 rounded-full ${product.quantity === 0
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm whitespace-nowrap">
+                    <thead>
+                      <tr className="text-left text-xs font-bold text-gray-400 uppercase tracking-wider border-b">
+                        <th className="pb-3 pl-3">#</th>
+                        <th className="pb-3">Product Name</th>
+                        <th className="pb-3">Category</th>
+                        <th className="pb-3 text-center">Qty</th>
+                        <th className="pb-3 text-right pr-3">MRP</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {modalProducts.map((product, idx) => (
+                        <tr
+                          key={product._id || idx}
+                          className="border-b border-gray-50 hover:bg-gray-50/80 transition"
+                        >
+                          <td className="py-3 pl-3 text-gray-400 font-semibold">{idx + 1}</td>
+                          <td className="py-3 font-semibold text-gray-800 max-w-[200px] truncate" title={product.name}>
+                            {product.name}
+                          </td>
+                          <td className="py-3">
+                            <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
+                              {product.Category || '—'}
+                            </span>
+                          </td>
+                          <td className="py-3 text-center">
+                            <span className={`inline-block min-w-[36px] text-center text-xs font-bold px-2 py-1 rounded-full ${product.quantity === 0
                               ? 'bg-red-100 text-red-700'
                               : 'bg-orange-100 text-orange-700'
-                            }`}>
-                            {product.quantity}
-                          </span>
-                        </td>
-                        <td className="py-3 text-right pr-3 font-semibold text-gray-700">
-                          Rs. {(product.MRP || product.Price || 0).toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                              }`}>
+                              {product.quantity}
+                            </span>
+                          </td>
+                          <td className="py-3 text-right pr-3 font-semibold text-gray-700">
+                            Rs. {(product.MRP || product.Price || 0).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </div>

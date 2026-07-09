@@ -275,23 +275,23 @@ function Productpage() {
     <div className="bg-base-100 min-h-screen">
       <TopNavbar />
 
-      <div className="mt-10 flex">
-        <div className="bg-blue-950 w-56 rounded-xl ml-10 block h-24">
-          <h1 className="text-white ml-12 block pt-5 font-bold">Total Product</h1>
-          <p className="text-white font-bold pt-2 ml-24">{totalProduct || "0"}</p>
+      <div className="mt-10 flex flex-wrap gap-4 px-4 md:px-10">
+        <div className="bg-blue-950 w-56 rounded-xl h-24 flex flex-col items-center justify-center">
+          <h1 className="text-white font-bold text-center">Total Product</h1>
+          <p className="text-white font-bold text-center">{totalProduct || "0"}</p>
         </div>
-        <div className="bg-blue-950 ml-10 rounded-xl block w-56 h-24">
-          <h1 className="text-white font-bold ml-12 pt-5">Total store value</h1>
-          <p className="text-white font-bold pt-2 ml-24">Rs.
+        <div className="bg-blue-950 rounded-xl w-56 h-24 flex flex-col items-center justify-center">
+          <h1 className="text-white font-bold text-center">Total store value</h1>
+          <p className="text-white font-bold text-center">Rs.
             {Math.round(getallproduct?.reduce((totalAmount, product) => {
               const qty = isStoreUser ? (product.storeQuantity || 0) : (product.quantity || 0);
               return totalAmount + (product.Price * qty);
             }, 0)) || "0"}
           </p>
         </div>
-        <div className="bg-blue-950 bg-base-100 w-56 rounded-xl ml-10 block h-24">
-          <h1 className="text-white font-bold ml-12 pt-5">Total Category</h1>
-          <p className="text-white font-bold pt-2 ml-24"> {getallCategory?.length || "0"}</p>
+        <div className="bg-blue-950 w-56 rounded-xl h-24 flex flex-col items-center justify-center">
+          <h1 className="text-white font-bold text-center">Total Category</h1>
+          <p className="text-white font-bold text-center">{getallCategory?.length || "0"}</p>
         </div>
       </div>
 
@@ -342,7 +342,7 @@ function Productpage() {
         </div>
 
         {isFormVisible && (
-          <div className="absolute z-50 w-full md:w-[450px] top-16 bg-gray-100 right-0 max-h-[85vh] overflow-y-auto p-6 border-2 border-gray-300 rounded-lg shadow-2xl transition-transform transform">
+          <div className="absolute z-50 w-full sm:w-[450px] top-16 bg-gray-100 right-0 max-h-[85vh] overflow-y-auto p-6 border-2 border-gray-300 rounded-lg shadow-2xl transition-transform transform">
             <div className="text-right">
               <MdKeyboardDoubleArrowLeft
                 onClick={() => setIsFormVisible(false)}

@@ -4,7 +4,7 @@ const StoreInventory = require("../models/StoreInventorymodel");
 const logActivity = require("../libs/logger");
 const logger = require("../libs/appLogger");
 const Purchases = require("../models/Purchasesmodel");
-const { checkAndCreateLowStockAlerts } = require("./notificationcontroller");
+const { checkAndCreateLowStockAlerts, createActivityBroadcast } = require("./notificationcontroller");
 
 module.exports.createSale = async (req, res) => {
   const userId = req.user._id;
@@ -140,6 +140,15 @@ module.exports.createSale = async (req, res) => {
     const populatedSale = await Sale.findById(newSale._id).populate({
       path: 'products.product',
       select: 'name quantity Category SubCategory Price MRP'
+    });
+
+    // Broadcast activity to actor + admins/managers
+    const productNames = populatedSale.products.map(p => p.product?.name || 'Unknown').join(', ');
+    await createActivityBroadcast(io, {
+      actorUser: req.user,
+      title: 'Sale Recorded',
+      message: `${req.user.name} recorded a sale of ${productNames} totalling NPR ${totalAmount.toFixed(2)} for customer ${customerName}.`,
+      storeId: targetStoreId
     });
 
     res.status(201).json({ success: true, message: "Sale created successfully", sale: populatedSale });

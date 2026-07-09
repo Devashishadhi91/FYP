@@ -17,15 +17,14 @@ function ManagerDashboard() {
   }, [Authuser]);
 
   return (
-    <div className="flex bg-gray-200 min-h-screen">
-
-      <div className="fixed h-full z-50">
-        <Sidebar />
-      </div>
-
-     
-      <div className="flex-1 ml-64 w-[calc(100%-16rem)] overflow-x-hidden"> 
+    <div className="drawer lg:drawer-open h-screen bg-gray-100">
+      <input id="sidebar-drawer" type="checkbox" className="drawer-toggle" />
+      <div className="drawer-content flex flex-col h-screen overflow-y-auto overflow-x-hidden">
         <Outlet />
+      </div>
+      <div className="drawer-side z-50">
+        <label htmlFor="sidebar-drawer" aria-label="close sidebar" className="drawer-overlay" />
+        <Sidebar />
       </div>
     </div>
   );

@@ -60,15 +60,20 @@ export const logout = createAsyncThunk(
     try {
       localStorage.removeItem("user");
       localStorage.removeItem("authUser");
+      // Clear persisted chat history for all users on this device
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith("chatHistory_"))
+        .forEach((key) => localStorage.removeItem(key));
       return null;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || "Logout failed");
     }
   }
 );
+
 export const updateProfile = createAsyncThunk(
   'auth/updateProfile',
-  async (base64Image, { rejectWithValue }) => {
+  async (payload, { rejectWithValue }) => {
     try {
   
       const storedUser = JSON.parse(localStorage.getItem('user'));
@@ -80,7 +85,7 @@ export const updateProfile = createAsyncThunk(
      
       const response = await axiosInstance.put(
         'auth/updateProfile',
-        { ProfilePic: base64Image },
+        payload,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -223,8 +228,7 @@ const authSlice = createSlice({
 
       builder.addCase(updateProfile.fulfilled, (state, action) => {
         state.isupdateProfile = false;
-        state.Authuser = { ...state.Authuser, user: action.payload }; 
-      
+        state.Authuser = { ...state.Authuser, ...action.payload }; 
       })
       
     

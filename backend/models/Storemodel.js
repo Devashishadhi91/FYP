@@ -13,6 +13,10 @@ const StoreSchema = new mongoose.Schema({
   contactNumber: {
     type: String
   },
+  location: {
+    lat: { type: Number, default: null },
+    lng: { type: Number, default: null }
+  },
   createdAt: {
     type: Date,
     default: Date.now

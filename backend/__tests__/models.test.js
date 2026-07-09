@@ -164,7 +164,9 @@ describe('Model Validation Tests', () => {
   it('MDL-13: Order status defaults to pending', async () => {
     const order = new Order({
       user: new mongoose.Types.ObjectId(),
+      requestedBy: new mongoose.Types.ObjectId(),
       Description: 'Test Order',
+      totalAmount: 500,
       products: [{ product: new mongoose.Types.ObjectId(), quantity: 1, price: 100 }]
     });
     const savedOrder = await order.save();

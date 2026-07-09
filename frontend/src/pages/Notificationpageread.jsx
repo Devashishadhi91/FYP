@@ -65,8 +65,11 @@ function NotificationPageRead() {
                   className="w-10 h-10 rounded-full mr-4 object-cover"
                 />
                 <div className="flex-1">
-                  <h3 className="font-medium text-gray-900">{notification.name}</h3>
-                  <p className="text-sm text-gray-600 mt-1">{notification.type}</p>
+                  <h3 className="font-medium text-gray-900">{notification.title}</h3>
+                  <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
+                  <span className="inline-block mt-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                    {notification.type.replace('_', ' ')}
+                  </span>
                   <p className="text-xs text-gray-400 mt-2">
                     <FormattedTime timestamp={notification.createdAt}/>
                   </p>

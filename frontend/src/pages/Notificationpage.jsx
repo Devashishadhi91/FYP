@@ -13,8 +13,9 @@ function NotificationPage() {
   const dispatch = useDispatch();
   const { notifications } = useSelector((state) => state.notification);
   const { Authuser } = useSelector((state) => state.auth);
-  const [name, setName] = useState("");
-  const [type, setType] = useState("");
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
+  const [type, setType] = useState("info");
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const hasReadNotifications = notifications.some(n => n.isRead);
@@ -42,8 +43,8 @@ function NotificationPage() {
             className="w-10 h-10 rounded-full mr-3"
           />
           <div>
-            <p className="font-medium">{newNotification.name}</p>
-            <p className="text-sm text-gray-600">{newNotification.type}</p>
+            <p className="font-medium">{newNotification.title}</p>
+            <p className="text-sm text-gray-600">{newNotification.message}</p>
           </div>
           <button 
             onClick={() => toast.dismiss(t.id)}
@@ -67,13 +68,14 @@ function NotificationPage() {
   }, [dispatch, Authuser?.ProfilePic]);
 
   const resetForm = () => {
-    setName("");
-    setType("");
+    setTitle("");
+    setMessage("");
+    setType("info");
   };
 
   const submitNotification = async (event) => {
     event.preventDefault();
-    const NotificationData = { name, type };
+    const NotificationData = { title, message, type };
 
     dispatch(createNotification(NotificationData))
       .then(() => {
@@ -123,8 +125,8 @@ function NotificationPage() {
               <div className="mb-4">
                 <label className="block font-medium">Title</label>
                 <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
                   type="text"
                   className="w-full h-10 px-3 border rounded-lg mt-2"
                   placeholder="Enter title"
@@ -132,14 +134,26 @@ function NotificationPage() {
                 />
               </div>
               <div className="mb-4">
-                <label className="block font-medium">Description</label>
+                <label className="block font-medium">Message</label>
                 <textarea
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
                   className="w-full h-24 px-3 border rounded-lg mt-2"
-                  placeholder="Enter description"
+                  placeholder="Enter message"
                   required
                 ></textarea>
+              </div>
+              <div className="mb-4">
+                <label className="block font-medium">Type</label>
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  className="w-full h-10 px-3 border rounded-lg mt-2"
+                  required
+                >
+                  <option value="info">Info</option>
+                  <option value="alert">Alert</option>
+                </select>
               </div>
               <button
                 type="submit"
@@ -161,8 +175,11 @@ function NotificationPage() {
                   className="w-12 h-12 rounded-full mr-4 object-cover"
                 />
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold">{notification.name}</h3>
-                  <p className="text-sm text-gray-600">{notification.type}</p>
+                  <h3 className="text-lg font-semibold">{notification.title}</h3>
+                  <p className="text-sm text-gray-600">{notification.message}</p>
+                  <span className="inline-block mt-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                    {notification.type.replace('_', ' ')}
+                  </span>
                   <p className="text-xs text-gray-500 mt-1">
                     <FormattedTime timestamp={notification.createdAt}/>
                   </p>

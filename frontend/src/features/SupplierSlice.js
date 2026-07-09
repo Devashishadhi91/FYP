@@ -11,9 +11,14 @@ const initialState = {
     issearchdata:false,
     editedSupplier:null,
     iseditedSupplier:false,
-    editedsupplier:null
+    editedsupplier:null,
+    supplierStats: [],
+    supplierDeliveries: [],
+    supplierSummary: [],
+    isLoadingStats: false,
  
 };
+
 
 
 export const CreateSupplier = createAsyncThunk(
@@ -96,6 +101,25 @@ export const gettingallSupplier = createAsyncThunk(
     }
   );
 
+export const getSupplierStats = createAsyncThunk(
+  "supplier/stats",
+  async ({ startDate, endDate, supplierId } = {}, { rejectWithValue }) => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
+      if (supplierId) params.append("supplierId", supplierId);
+      const query = params.toString() ? `?${params.toString()}` : "";
+      const response = await axiosInstance.get(`supplier/stats/lastmonth${query}`, { withCredentials: true });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch supplier stats");
+    }
+  }
+);
+
+
+
 
 const supplierSlice = createSlice({
   name: "supplier",
@@ -176,6 +200,19 @@ const supplierSlice = createSlice({
 
 
 })
+
+.addCase(getSupplierStats.pending, (state) => {
+  state.isLoadingStats = true;
+})
+.addCase(getSupplierStats.fulfilled, (state, action) => {
+  state.isLoadingStats = false;
+  state.supplierDeliveries = action.payload?.deliveries || [];
+  state.supplierSummary = action.payload?.summary || [];
+})
+.addCase(getSupplierStats.rejected, (state) => {
+  state.isLoadingStats = false;
+})
+
 
 
 

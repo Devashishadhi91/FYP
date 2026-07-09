@@ -27,6 +27,7 @@ function Userstatus() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('staff');
   const [storeId, setStoreId] = useState('');
+  const [distributorId, setDistributorId] = useState('');
   const [isRounding, setIsRounding] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -38,8 +39,10 @@ function Userstatus() {
   const [editPassword, setEditPassword] = useState('');
   const [editRole, setEditRole] = useState('staff');
   const [editStoreId, setEditStoreId] = useState('');
+  const [editDistributorId, setEditDistributorId] = useState('');
   const [editIsRounding, setEditIsRounding] = useState(false);
   const [unassignedStores, setUnassignedStores] = useState([]);
+  const [distributors, setDistributors] = useState([]);
   const [isEditLoading, setIsEditLoading] = useState(false);
 
   useEffect(() => {
@@ -47,6 +50,7 @@ function Userstatus() {
     dispatch(managerUser());
     dispatch(adminUser());
     dispatch(fetchAllStores());
+    axiosInstance.get('/auth/distributors').then(res => setDistributors(res.data)).catch(() => {});
   }, [dispatch]);
 
   useEffect(() => {
@@ -82,13 +86,14 @@ function Userstatus() {
 
     setIsLoading(true);
     try {
-      await dispatch(adminCreateUser({ name, email, password, role, storeId: isRounding ? '' : storeId, isRounding })).unwrap();
+      await dispatch(adminCreateUser({ name, email, password, role, storeId: isRounding ? '' : storeId, isRounding, distributorId })).unwrap();
       toast.success("User created successfully!");
       
       // Refresh user lists
       dispatch(staffUser());
       dispatch(managerUser());
       dispatch(adminUser());
+      axiosInstance.get('/auth/distributors').then(res => setDistributors(res.data)).catch(() => {});
       
       // Reset form
       setName('');
@@ -96,6 +101,7 @@ function Userstatus() {
       setPassword('');
       setRole('staff');
       setStoreId('');
+      setDistributorId('');
       setIsRounding(false);
     } catch (error) {
       toast.error(error || "Failed to create user");
@@ -111,6 +117,7 @@ function Userstatus() {
     setEditPassword('');
     setEditRole(user.role);
     setEditStoreId(user.storeId?._id || user.storeId || '');
+    setEditDistributorId(user.distributorId?._id || user.distributorId || '');
     setEditIsRounding(user.isRounding || false);
     
     if (user.role === 'staff') {
@@ -138,6 +145,7 @@ function Userstatus() {
       role: editRole,
       password: editPassword || undefined,
       isRounding: editIsRounding,
+      distributorId: editDistributorId || null,
     };
     if (editRole === 'staff') {
       formData.storeId = editIsRounding ? null : (editStoreId || null);
@@ -205,6 +213,28 @@ function Userstatus() {
               <p className="text-gray-500 text-sm">No admins available.</p>
             )}
           </div>
+          <div className="bg-base-100 p-4 rounded-lg shadow-md mb-4 border">
+            <h2 className="text-lg font-semibold mb-2">Distributor</h2>
+            {distributors?.length > 0 ? (
+              distributors.map((user, index) => (
+                <div key={index} className="flex items-center space-x-4 p-2 border-b last:border-0">
+                  <img src={user?.ProfilePic||image} alt="User" className="w-10 h-10 rounded-full" />
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{user.name}</p>
+                    <p className="text-gray-500 text-xs">{user.email}</p>
+                  </div>
+                  {Authuser?.role === 'admin' && (
+                    <div className="flex items-center">
+                      <TiEdit onClick={()=>openEditModal(user)} className="text-blue-600 text-2xl cursor-pointer mr-2" />
+                      <TiDelete onClick={()=>handleremove(user._id)} className="text-red-600 text-2xl cursor-pointer" />
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-500 text-sm">No distributors available.</p>
+            )}
+          </div>
 
           <div className="bg-base-100 p-4 rounded-lg shadow-md border">
             <h2 className="text-lg font-semibold mb-2">Staff User</h2>
@@ -264,6 +294,7 @@ function Userstatus() {
                       <option value="staff">Staff</option>
                       <option value="manager">Manager</option>
                       <option value="admin">Admin</option>
+                      <option value="distributor">Distributor</option>
                     </select>
                   </div>
                   
@@ -293,7 +324,20 @@ function Userstatus() {
                         ))}
                       </select>
                       {isRounding && (
-                        <p className="text-xs text-purple-600 mt-1">✓ This staff member will be a rounding staff with no fixed store assignment.</p>
+                        <div className="mt-3">
+                          <p className="text-xs text-purple-600 mb-2">✓ This staff member will be a rounding staff with no fixed store assignment.</p>
+                          <label className="label"><span className="label-text">Assign to Distributor (Optional)</span></label>
+                          <select
+                            className="select select-bordered w-full"
+                            value={distributorId}
+                            onChange={(e) => setDistributorId(e.target.value)}
+                          >
+                            <option value="">No Distributor</option>
+                            {distributors?.map((d) => (
+                              <option key={d._id} value={d._id}>{d.name}</option>
+                            ))}
+                          </select>
+                        </div>
                       )}
                     </div>
                   )}
@@ -335,6 +379,7 @@ function Userstatus() {
                 <select className="select select-bordered w-full" value={editRole} onChange={(e) => setEditRole(e.target.value)}>
                   <option value="staff">Staff</option>
                   <option value="manager">Manager</option>
+                  <option value="distributor">Distributor</option>
                 </select>
               </div>
             )}
@@ -362,7 +407,20 @@ function Userstatus() {
                   ))}
                 </select>
                 {editIsRounding && (
-                  <p className="text-xs text-purple-600 mt-1">✓ Rounding staff — no fixed store.</p>
+                  <div className="mt-3">
+                    <p className="text-xs text-purple-600 mb-2">✓ Rounding staff — no fixed store.</p>
+                    <label className="label"><span className="label-text">Assign to Distributor (Optional)</span></label>
+                    <select
+                      className="select select-bordered w-full"
+                      value={editDistributorId}
+                      onChange={(e) => setEditDistributorId(e.target.value)}
+                    >
+                      <option value="">No Distributor</option>
+                      {distributors?.map((d) => (
+                        <option key={d._id} value={d._id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 )}
               </div>
             )}
