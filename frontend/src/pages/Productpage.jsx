@@ -41,6 +41,9 @@ function Productpage() {
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [filterCategory, setFilterCategory] = useState("");
+  const [stockFilter, setStockFilter] = useState("all"); // 'in-stock', 'all', 'out-of-stock'
   const itemsPerPage = 20;
 
   useEffect(() => {
@@ -65,14 +68,34 @@ function Productpage() {
   }, [query, dispatch]);
 
   const handleremove = async (productId) => {
+    const confirmDelete = window.confirm("Are you sure you want to delete this product?");
+    if (!confirmDelete) return;
+    
     dispatch(Removeproduct(productId))
       .unwrap()
       .then(() => {
         toast.success("Product removed successfully");
+        setSelectedItems(prev => prev.filter(id => id !== productId));
       })
       .catch((error) => {
         toast.error(error || "Failed to remove product");
       });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedItems.length === 0) return;
+    const confirmDelete = window.confirm(`Are you sure you want to delete ${selectedItems.length} products?`);
+    if (!confirmDelete) return;
+
+    toast.loading("Deleting products...", { id: "bulk-delete" });
+    try {
+      await Promise.all(selectedItems.map(id => dispatch(Removeproduct(id)).unwrap()));
+      toast.success("Products deleted successfully", { id: "bulk-delete" });
+      setSelectedItems([]);
+      dispatch(gettingallproducts());
+    } catch (error) {
+      toast.error("Failed to delete some products", { id: "bulk-delete" });
+    }
   };
 
   const handleEditSubmit = (event) => {
@@ -255,8 +278,38 @@ function Productpage() {
     setIsFormVisible(true);
   };
 
-  const displayProducts = query.trim() !== "" ? searchdata : getallproduct;
-  const safeProducts = Array.isArray(displayProducts) ? [...displayProducts].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) : [];
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedItems(currentItems.map(p => p._id));
+    } else {
+      setSelectedItems([]);
+    }
+  };
+
+  const handleSelectItem = (id) => {
+    setSelectedItems(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const baseProducts = query.trim() !== "" ? searchdata : getallproduct;
+  
+  const getQty = (p) => isStoreUser ? (p.storeQuantity ?? 0) : (p.quantity ?? 0);
+  
+  let displayProducts = filterCategory ? baseProducts.filter(p => (p.Category?.name || p.Category) === filterCategory) : baseProducts;
+  
+  if (stockFilter === 'in-stock') {
+    displayProducts = displayProducts.filter(p => getQty(p) > 0);
+  } else if (stockFilter === 'out-of-stock') {
+    displayProducts = displayProducts.filter(p => getQty(p) === 0);
+  }
+
+  const safeProducts = Array.isArray(displayProducts) ? [...displayProducts].sort((a, b) => {
+    const qtyA = getQty(a);
+    const qtyB = getQty(b);
+    if (qtyB !== qtyA) return qtyB - qtyA; // Descending by stock
+    return new Date(b.createdAt) - new Date(a.createdAt); // Fallback to date
+  }) : [];
   
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -296,28 +349,78 @@ function Productpage() {
       </div>
 
       <div className="mt-12 ml-5">
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-wrap items-center gap-4">
           <input
             type="text"
             value={query}
             onChange={(e) => setquery(e.target.value)}
-            className="w-full md:w-96 h-12 pl-4 pr-12 border-2 border-gray-300 rounded-lg"
-            placeholder="Enter your product"
+            className="w-full md:w-80 h-12 pl-4 pr-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+            placeholder="Search products..."
           />
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="w-full md:w-56 h-12 pl-4 pr-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white"
+          >
+            <option value="">All Categories</option>
+            {getallCategory?.map((category) => (
+              <option key={category._id} value={category.name}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+
+          <div className="flex bg-gray-100/80 rounded-lg p-1 relative h-12 w-[320px] items-center border border-gray-200 shadow-inner">
+            <div 
+              className={`absolute top-1 bottom-1 w-[104px] bg-white rounded-md shadow-sm border border-gray-200/50 transition-transform duration-300 ease-in-out ${
+                stockFilter === 'in-stock' ? 'translate-x-0' : 
+                stockFilter === 'all' ? 'translate-x-[104px]' : 
+                'translate-x-[208px]'
+              }`} 
+            />
+            <button 
+              onClick={() => { setStockFilter('in-stock'); setCurrentPage(1); }}
+              className={`relative z-10 w-[104px] h-full text-[11px] font-bold uppercase tracking-wider rounded-md transition-colors ${stockFilter === 'in-stock' ? 'text-green-600' : 'text-gray-500 hover:text-gray-800'}`}
+            >
+              In Stock
+            </button>
+            <button 
+              onClick={() => { setStockFilter('all'); setCurrentPage(1); }}
+              className={`relative z-10 w-[104px] h-full text-[11px] font-bold uppercase tracking-wider rounded-md transition-colors ${stockFilter === 'all' ? 'text-blue-600' : 'text-gray-500 hover:text-gray-800'}`}
+            >
+              All
+            </button>
+            <button 
+              onClick={() => { setStockFilter('out-of-stock'); setCurrentPage(1); }}
+              className={`relative z-10 w-[104px] h-full text-[11px] font-bold uppercase tracking-wider rounded-md transition-colors ${stockFilter === 'out-of-stock' ? 'text-red-600' : 'text-gray-500 hover:text-gray-800'}`}
+            >
+              Out Stock
+            </button>
+          </div>
           {!isStaff && (
             <>
+              {selectedItems.length > 0 && (
+                <button
+                  onClick={handleBulkDelete}
+                  className="bg-red-600 text-white px-4 h-12 rounded-lg flex items-center justify-center hover:bg-red-700 transition shadow-md font-semibold"
+                >
+                  Delete ({selectedItems.length})
+                </button>
+              )}
+              
               <button
                 onClick={() => {
                   setIsFormVisible(true);
                   setSelectedProduct(null);
+                  resetForm();
                 }}
-                className="bg-blue-800 text-white w-40 h-12 rounded-lg flex items-center justify-center hover:bg-blue-700 transition"
+                className="bg-blue-800 text-white w-40 h-12 rounded-lg flex items-center justify-center hover:bg-blue-700 transition shadow-md"
               >
                 <IoMdAdd className="text-xl mr-2" /> Add Product
               </button>
 
-              <label className="bg-green-600 text-white w-48 h-12 rounded-lg flex items-center justify-center hover:bg-green-700 transition cursor-pointer">
-                <IoMdAdd className="text-xl mr-2" /> Upload .xlsx
+              <label className="bg-green-600 text-white w-40 h-12 rounded-lg flex items-center justify-center hover:bg-green-700 transition cursor-pointer shadow-md">
+                <IoMdAdd className="text-xl mr-2" /> Import .xlsx
                 <input
                   type="file"
                   accept=".xlsx, .xls, .csv"
@@ -342,19 +445,29 @@ function Productpage() {
         </div>
 
         {isFormVisible && (
-          <div className="absolute z-50 w-full sm:w-[450px] top-16 bg-gray-100 right-0 max-h-[85vh] overflow-y-auto p-6 border-2 border-gray-300 rounded-lg shadow-2xl transition-transform transform">
-            <div className="text-right">
-              <MdKeyboardDoubleArrowLeft
-                onClick={() => setIsFormVisible(false)}
-                className="cursor-pointer text-2xl"
-              />
-            </div>
+          <div className="fixed inset-0 z-50 flex justify-end">
+            {/* Backdrop */}
+            <div 
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity"
+              onClick={() => setIsFormVisible(false)}
+            />
+            
+            {/* Slide-Over Panel */}
+            <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-[slideInRight_0.3s_ease-out]">
+              <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-gray-50">
+                <h1 className="text-xl font-bold text-gray-800">
+                  {selectedProduct ? "Edit Product" : "Add Product"}
+                </h1>
+                <button 
+                  onClick={() => setIsFormVisible(false)}
+                  className="p-2 rounded-full hover:bg-gray-200 transition text-gray-500"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+              </div>
 
-            <h1 className="text-xl font-semibold mb-4">
-              {selectedProduct ? "Edit Product" : "Add Product"}
-            </h1>
-
-            <form onSubmit={selectedProduct ? handleEditSubmit : submitProduct}>
+              <div className="flex-1 overflow-y-auto p-6">
+                <form onSubmit={selectedProduct ? handleEditSubmit : submitProduct} className="space-y-4">
               <div className="mb-4">
                 <label>Product ID</label>
                 <input
@@ -460,16 +573,18 @@ function Productpage() {
                 </select>
               </div>
 
-
-
-              <button
-                type="submit"
-                className="bg-blue-800 text-white w-full h-12 rounded-lg hover:bg-blue-700 mt-4"
-              >
-                {selectedProduct ? "Update Product" : "Add Product"}
-              </button>
+              <div className="pt-4 border-t border-gray-100">
+                <button
+                  type="submit"
+                  className="bg-blue-800 text-white w-full h-12 rounded-lg hover:bg-blue-700 transition font-bold shadow-md"
+                >
+                  {selectedProduct ? "Save Changes" : "Create Product"}
+                </button>
+              </div>
             </form>
+            </div>
           </div>
+        </div>
         )}
 
         <div className="mt-8">
@@ -488,6 +603,16 @@ function Productpage() {
             <table className="min-w-full whitespace-nowrap">
               <thead>
                 <tr className="bg-gray-50/80 text-left border-b border-gray-100">
+                  {!isStaff && (
+                    <th className="px-3 py-2.5 w-10 text-center">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        onChange={handleSelectAll}
+                        checked={currentItems.length > 0 && selectedItems.length === currentItems.length}
+                      />
+                    </th>
+                  )}
                   <th className="px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider">S.N.</th>
                   <th className="px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider">ID</th>
                   <th className="px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Name</th>
@@ -508,6 +633,16 @@ function Productpage() {
 
                     return (
                       <tr key={product._id} className="hover:bg-gray-50/50 transition-colors duration-150">
+                        {!isStaff && (
+                          <td className="px-3 py-2.5 text-center">
+                            <input 
+                              type="checkbox" 
+                              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                              checked={selectedItems.includes(product._id)}
+                              onChange={() => handleSelectItem(product._id)}
+                            />
+                          </td>
+                        )}
                         <td className="px-3 py-2.5 text-xs font-semibold text-gray-600">{indexOfFirstItem + index + 1}</td>
                         <td className="px-3 py-2.5 text-xs font-medium text-gray-500">{product.productId || "N/A"}</td>
                         <td className="px-3 py-2.5 text-xs font-bold text-gray-800">{product.name}</td>
@@ -574,6 +709,14 @@ function Productpage() {
           )}
         </div>
       </div>
+      
+      {/* Slide-In animation keyframes */}
+      <style>{`
+        @keyframes slideInRight {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+      `}</style>
     </div>
   );
 }

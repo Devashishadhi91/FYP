@@ -24,11 +24,12 @@ export const fetchMySchedule = createAsyncThunk('schedule/mySchedule', async (da
   }
 });
 
-export const fetchManagerSchedules = createAsyncThunk('schedule/managerSchedules', async ({ startDate, endDate } = {}, { rejectWithValue }) => {
+export const fetchManagerSchedules = createAsyncThunk('schedule/managerSchedules', async ({ startDate, endDate, staffId } = {}, { rejectWithValue }) => {
   try {
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
+    if (staffId) params.append('staffId', staffId);
     const query = params.toString();
     const url = query ? `/schedule/manager-schedules?${query}` : '/schedule/manager-schedules';
     const res = await axiosInstance.get(url);
@@ -38,11 +39,12 @@ export const fetchManagerSchedules = createAsyncThunk('schedule/managerSchedules
   }
 });
 
-export const fetchAllSchedules = createAsyncThunk('schedule/all', async ({ startDate, endDate } = {}, { rejectWithValue }) => {
+export const fetchAllSchedules = createAsyncThunk('schedule/all', async ({ startDate, endDate, staffId } = {}, { rejectWithValue }) => {
   try {
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
+    if (staffId) params.append('staffId', staffId);
     const query = params.toString();
     const url = query ? `/schedule/all?${query}` : '/schedule/all';
     const res = await axiosInstance.get(url);
@@ -70,6 +72,30 @@ export const fetchStaffSchedules = createAsyncThunk('schedule/staffSchedules', a
     return res.data;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to fetch staff schedules');
+  }
+});
+
+export const updateSchedule = createAsyncThunk('schedule/update', async ({ id, data }, { rejectWithValue }) => {
+  try {
+    const res = await axiosInstance.put(`/schedule/${id}`, data);
+    toast.success('Schedule updated successfully');
+    return res.data.schedule;
+  } catch (err) {
+    const msg = err.response?.data?.message || 'Failed to update schedule';
+    toast.error(msg);
+    return rejectWithValue(msg);
+  }
+});
+
+export const deleteSchedule = createAsyncThunk('schedule/delete', async (id, { rejectWithValue }) => {
+  try {
+    await axiosInstance.delete(`/schedule/${id}`);
+    toast.success('Schedule deleted');
+    return id;
+  } catch (err) {
+    const msg = err.response?.data?.message || 'Failed to delete schedule';
+    toast.error(msg);
+    return rejectWithValue(msg);
   }
 });
 
@@ -111,7 +137,26 @@ const scheduleSlice = createSlice({
 
       .addCase(fetchStaffSchedules.pending, (state) => { state.loading = true; })
       .addCase(fetchStaffSchedules.fulfilled, (state, action) => { state.loading = false; state.staffSchedules = action.payload; })
-      .addCase(fetchStaffSchedules.rejected, (state, action) => { state.loading = false; state.error = action.payload; });
+      .addCase(fetchStaffSchedules.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
+
+      .addCase(updateSchedule.pending, (state) => { state.loading = true; })
+      .addCase(updateSchedule.fulfilled, (state, action) => {
+        state.loading = false;
+        const updated = action.payload;
+        const updateInList = (list) => list.map(s => s._id === updated._id ? updated : s);
+        state.allSchedules = updateInList(state.allSchedules);
+        state.managerSchedules = updateInList(state.managerSchedules);
+      })
+      .addCase(updateSchedule.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
+
+      .addCase(deleteSchedule.pending, (state) => { state.loading = true; })
+      .addCase(deleteSchedule.fulfilled, (state, action) => {
+        state.loading = false;
+        const id = action.payload;
+        state.allSchedules = state.allSchedules.filter(s => s._id !== id);
+        state.managerSchedules = state.managerSchedules.filter(s => s._id !== id);
+      })
+      .addCase(deleteSchedule.rejected, (state, action) => { state.loading = false; state.error = action.payload; });
   }
 });
 

@@ -2,7 +2,8 @@ const Product = require('../models/Productmodel')
 const CategoryModel = require('../models/Categorymodel');
 const StoreInventory = require('../models/StoreInventorymodel');
 const logger = require('../libs/appLogger');
-const logActivity = require('../libs/logger')
+const logActivity = require('../libs/logger');
+const { resolveTargetStoreId } = require('../libs/authUtils');
 
 module.exports.Addproduct = async (req, res) => {
   const userId = req.user._id;
@@ -22,11 +23,11 @@ module.exports.Addproduct = async (req, res) => {
       return res.status(400).json({ error: "Please provide all essential product details (name, Category, MRP)." });
     }
 
-    // Admins can specify storeId, Managers/Staff are locked to their assigned store
-    const targetStoreId = userRole === 'admin' ? storeId : userStoreId;
-
-    if (!targetStoreId && userRole !== 'admin') {
-      return res.status(400).json({ message: "No store assigned to this user." });
+    let targetStoreId;
+    try {
+      targetStoreId = resolveTargetStoreId(req.user, storeId);
+    } catch (err) {
+      return res.status(400).json({ message: err.message });
     }
 
     // Auto-create category if it doesn't exist

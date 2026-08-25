@@ -2,9 +2,9 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from '../lib/axios';
 import toast from 'react-hot-toast';
 
-export const checkInAttendance = createAsyncThunk('attendance/checkin', async ({ lat, lng }, { rejectWithValue }) => {
+export const checkInAttendance = createAsyncThunk('attendance/checkin', async ({ lat, lng, clientHour }, { rejectWithValue }) => {
   try {
-    const res = await axiosInstance.post('/attendance/checkin', { lat, lng });
+    const res = await axiosInstance.post('/attendance/checkin', { lat, lng, clientHour });
     return res.data;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Check-in failed');

@@ -6,7 +6,9 @@ const {
   getManagerSchedules,
   getSchedulesForStaff,
   checkRoundingAttendance,
-  getAllSchedules
+  getAllSchedules,
+  updateSchedule,
+  deleteSchedule
 } = require('../controller/scheduleController');
 const { authmiddleware, adminOrManagerMiddleware } = require('../middleware/Authmiddleware');
 
@@ -16,5 +18,7 @@ router.get('/manager-schedules', authmiddleware, adminOrManagerMiddleware, getMa
 router.get('/all', authmiddleware, adminOrManagerMiddleware, getAllSchedules);
 router.get('/staff/:staffId', authmiddleware, adminOrManagerMiddleware, getSchedulesForStaff);
 router.post('/rounding-checkin', authmiddleware, checkRoundingAttendance);
+router.put('/:id', authmiddleware, adminOrManagerMiddleware, updateSchedule);
+router.delete('/:id', authmiddleware, adminOrManagerMiddleware, deleteSchedule);
 
 module.exports = router;

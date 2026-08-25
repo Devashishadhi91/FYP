@@ -24,11 +24,16 @@ const GEOFENCE_RADIUS_METRES = 100;
 // Staff calls this on login or manually — sends their GPS, gets marked present/absent
 module.exports.checkInGeofence = async (req, res) => {
   try {
-    const { lat, lng } = req.body;
+    const { lat, lng, clientHour } = req.body;
     const user = req.user;
 
     if (lat === undefined || lng === undefined) {
       return res.status(400).json({ message: 'Location coordinates are required.' });
+    }
+
+    const hour = clientHour !== undefined ? Number(clientHour) : new Date().getHours();
+    if (hour < 10 || hour >= 18) {
+      return res.status(400).json({ message: 'Attendance check-in is only allowed between 10:00 AM and 6:00 PM.' });
     }
 
     if (user.role !== 'staff' || user.isRounding) {

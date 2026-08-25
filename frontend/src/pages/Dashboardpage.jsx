@@ -11,6 +11,7 @@ import { fetchAllStores } from "../features/storeSlice";
 import FormattedTime from "../lib/FormattedTime ";
 import socket from "../lib/socket";
 import axiosInstance from "../lib/axios";
+import { useNavigate } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
 function Dashboardpage() {
@@ -29,6 +30,14 @@ function Dashboardpage() {
   const [stockAlerts, setStockAlerts] = useState({ lowStock: [], outOfStock: [] });
   const [stockAlertsLoading, setStockAlertsLoading] = useState(false);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  const getDashboardPrefix = (role) => {
+    if (role === 'admin') return '/AdminDashboard';
+    if (role === 'manager') return '/ManagerDashboard';
+    if (role === 'staff') return '/StaffDashboard';
+    return '';
+  };
 
   useEffect(() => {
     if (isAdminOrManager) {
@@ -294,12 +303,20 @@ function Dashboardpage() {
                   {stockAlertsLoading ? '...' : modalProducts.length} items
                 </span>
               </div>
-              <button
-                onClick={() => setStockModal({ open: false, type: null })}
-                className="p-1.5 rounded-lg hover:bg-white/80 transition text-gray-500 hover:text-gray-800"
-              >
-                <FiX className="text-xl" />
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => navigate(`${getDashboardPrefix(Authuser?.role)}/product`)}
+                  className="px-3 py-1.5 bg-white text-xs font-bold rounded-lg border shadow-sm hover:bg-gray-50 transition"
+                >
+                  Manage Inventory
+                </button>
+                <button
+                  onClick={() => setStockModal({ open: false, type: null })}
+                  className="p-1.5 rounded-lg hover:bg-white/80 transition text-gray-500 hover:text-gray-800"
+                >
+                  <FiX className="text-xl" />
+                </button>
+              </div>
             </div>
 
             {/* Table */}

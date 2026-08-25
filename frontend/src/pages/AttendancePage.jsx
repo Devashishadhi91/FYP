@@ -37,8 +37,9 @@ function AttendancePage() {
       (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
+        const clientHour = new Date().getHours();
         setLocStatus('done');
-        dispatch(checkInAttendance({ lat, lng })).then((res) => {
+        dispatch(checkInAttendance({ lat, lng, clientHour })).then((res) => {
           if (res.meta.requestStatus === 'fulfilled') {
             const result = res.payload;
             if (result.success) {

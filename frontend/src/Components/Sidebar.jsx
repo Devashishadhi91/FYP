@@ -72,7 +72,15 @@ function Sidebar() {
   const location = useLocation();
   const { Authuser } = useSelector((state) => state.auth);
   const role = Authuser?.role?.toLowerCase();
-  const links = navConfig[role] || [];
+  
+  let links = navConfig[role] || [];
+  if (role === 'staff' && Authuser?.isRounding) {
+    links = links.map(link => 
+      link.label === "Attendance" 
+        ? { ...link, path: "/StaffDashboard/rounding-schedule" }
+        : link
+    );
+  }
 
   const handleLogout = async () => {
     dispatch(logout())

@@ -89,11 +89,12 @@ module.exports.getMySchedule = async (req, res) => {
   }
 };
 
-// GET /api/schedule/manager-schedules?startDate=&endDate= — manager views all schedules they created
+// GET /api/schedule/manager-schedules?startDate=&endDate=&staffId= — manager views all schedules they created
 module.exports.getManagerSchedules = async (req, res) => {
   try {
-    const { date, startDate, endDate } = req.query;
+    const { date, startDate, endDate, staffId } = req.query;
     const filter = { createdBy: req.user._id };
+    if (staffId) filter.staffId = staffId;
     if (date) {
       filter.date = date;
     } else if (startDate || endDate) {
@@ -214,8 +215,9 @@ module.exports.checkRoundingAttendance = async (req, res) => {
 // GET /api/schedule/all — admin sees all schedules
 module.exports.getAllSchedules = async (req, res) => {
   try {
-    const { date, startDate, endDate } = req.query;
+    const { date, startDate, endDate, staffId } = req.query;
     const filter = {};
+    if (staffId) filter.staffId = staffId;
     if (date) {
       filter.date = date;
     } else if (startDate || endDate) {
@@ -232,5 +234,40 @@ module.exports.getAllSchedules = async (req, res) => {
     res.status(200).json(schedules);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching all schedules', error: error.message });
+  }
+};
+
+// PUT /api/schedule/:id — update a schedule's slots
+module.exports.updateSchedule = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { slots, date } = req.body;
+
+    const schedule = await RoundingSchedule.findById(id);
+    if (!schedule) return res.status(404).json({ message: 'Schedule not found.' });
+
+    if (slots) schedule.slots = slots;
+    if (date) schedule.date = date;
+    await schedule.save();
+
+    const updated = await RoundingSchedule.findById(id)
+      .populate('staffId', 'name email ProfilePic')
+      .populate('createdBy', 'name');
+
+    res.status(200).json({ message: 'Schedule updated.', schedule: updated });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating schedule', error: error.message });
+  }
+};
+
+// DELETE /api/schedule/:id — delete a schedule
+module.exports.deleteSchedule = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const schedule = await RoundingSchedule.findByIdAndDelete(id);
+    if (!schedule) return res.status(404).json({ message: 'Schedule not found.' });
+    res.status(200).json({ message: 'Schedule deleted.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting schedule', error: error.message });
   }
 };

@@ -5,6 +5,7 @@ const logActivity = require("../libs/logger");
 const logger = require("../libs/appLogger");
 const Purchases = require("../models/Purchasesmodel");
 const { checkAndCreateLowStockAlerts, createActivityBroadcast } = require("./notificationcontroller");
+const { resolveTargetStoreId } = require("../libs/authUtils");
 
 module.exports.createSale = async (req, res) => {
   const userId = req.user._id;
@@ -19,22 +20,10 @@ module.exports.createSale = async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required fields or empty product list" });
     }
 
-    // Determine target store based on role
-    // Admin can optionally select a store, Manager/Staff use their assigned store
     let targetStoreId;
-    if (userRole === 'admin') {
-      // Admin can select a store, but it's optional
-      targetStoreId = storeId || null;
-    } else if (userRole === 'manager') {
-      // Manager uses their assigned store
-      targetStoreId = userStoreId;
-    } else {
-      // Staff uses their assigned store
-      targetStoreId = userStoreId;
-    }
-
-    // Check if store is required based on role
-    if (!targetStoreId && userRole !== 'admin') {
+    try {
+      targetStoreId = resolveTargetStoreId(req.user, storeId);
+    } catch (err) {
       return res.status(400).json({ message: "No store assigned. Cannot create sale." });
     }
 
